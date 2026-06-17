@@ -19,7 +19,6 @@ logger = get_logger(__name__)
 
 settings_blp = Blueprint('settings', __name__)
 
-# .env 文件路径
 ENV_FILE_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), '.env')
 
 
@@ -71,14 +70,7 @@ def _refresh_runtime_services() -> None:
         except Exception as e:
             logger.warning(f"Singleton reset skipped: {module_name}.{field_name}: {e}")
 
-# 配置项定义（分组）- 按功能模块划分，每个配置项包含描述
 # ---------------------------------------------------------------
-# 精简原则：
-#   - 部署级配置（host/port/debug）不在 UI 暴露，用户通过 .env 或 docker-compose 设置
-#   - 内部调优参数（超时/重试/tick间隔/向量维度等）使用默认值即可，不暴露给普通用户
-#   - 只保留用户真正需要配置的功能开关和 API Key
-# - 频繁用到的开关、Key 放在 "常用" tab；冷门的限频/calibration 等放在 "高级" tab
-#   (由 ADVANCED_KEYS 集合控制，避免给每一项手动加字段)
 # ---------------------------------------------------------------
 
 # Keys that should land in the "Advanced" tab of the Settings page.  Anything
@@ -131,7 +123,6 @@ ADVANCED_KEYS = {
 
 CONFIG_SCHEMA = {
 
-    # ==================== 0. 品牌 / 联系方式 / 法律 ====================
     # Frontend reads these via /api/settings/brand-config (no auth) so logos,
     # social links, version label and legal modals can be rebranded without
     # touching the Vue source.
@@ -185,7 +176,6 @@ CONFIG_SCHEMA = {
         ]
     },
 
-    # ==================== 0b. 联系方式（运营常改）====================
     'contact': {
         'title': 'Contact & Support',
         'icon': 'customer-service',
@@ -222,7 +212,6 @@ CONFIG_SCHEMA = {
         ]
     },
 
-    # ==================== 0c. 社交账户（固定 5 个槽）====================
     'social': {
         'title': 'Social Accounts',
         'icon': 'team',
@@ -266,7 +255,6 @@ CONFIG_SCHEMA = {
         ]
     },
 
-    # ==================== 0d. 用户协议 / 隐私 / 移动 App ====================
     'legal': {
         'title': 'Legal & Mobile App',
         'icon': 'safety-certificate',
@@ -317,7 +305,6 @@ CONFIG_SCHEMA = {
         ]
     },
 
-    # ==================== 1. 安全认证 ====================
     'auth': {
         'title': 'Security & Authentication',
         'icon': 'lock',
@@ -354,7 +341,6 @@ CONFIG_SCHEMA = {
         ]
     },
 
-    # ==================== 2. AI/LLM 配置 ====================
     'ai': {
         'title': 'AI / LLM & Search',
         'icon': 'robot',
@@ -401,10 +387,10 @@ CONFIG_SCHEMA = {
                 'key': 'OPENROUTER_MODEL',
                 'label': 'OpenRouter Model',
                 'type': 'text',
-                'default': 'openai/gpt-4o',
+                'default': 'openai/gpt-5.4',
                 'link': 'https://openrouter.ai/models',
                 'link_text': 'settings.link.viewModels',
-                'description': 'Model ID, e.g. openai/gpt-4o, anthropic/claude-3.5-sonnet',
+                'description': 'OpenRouter model ID in provider/model format, e.g. openai/gpt-5.4, anthropic/claude-sonnet-4.5',
                 'group': 'openrouter'
             },
             # OpenAI Direct
@@ -422,10 +408,10 @@ CONFIG_SCHEMA = {
                 'key': 'OPENAI_MODEL',
                 'label': 'OpenAI Model',
                 'type': 'text',
-                'default': 'gpt-4o',
+                'default': 'gpt-5.4',
                 'link': 'https://platform.openai.com/docs/models',
                 'link_text': 'settings.link.viewModels',
-                'description': 'Model name: gpt-4o, gpt-4o-mini, gpt-4-turbo, etc.',
+                'description': 'OpenAI direct model name without provider prefix, e.g. gpt-5.4, gpt-4o-mini',
                 'group': 'openai'
             },
             {
@@ -530,10 +516,10 @@ CONFIG_SCHEMA = {
                 'key': 'ATLASCLOUD_MODEL',
                 'label': 'AtlasCloud Model',
                 'type': 'text',
-                'default': 'deepseek-v3',
+                'default': 'openai/gpt-5.4',
                 'link': 'https://www.atlascloud.ai/docs/models/llm',
                 'link_text': 'settings.link.viewModels',
-                'description': 'AtlasCloud model id, e.g. deepseek-v3. Do not enter other-provider or OpenRouter-prefixed ids unless AtlasCloud lists them.',
+                'description': 'AtlasCloud model ID. Use the exact ID listed by AtlasCloud, e.g. openai/gpt-5.4 or deepseek-v3.',
                 'group': 'atlascloud'
             },
             {
@@ -613,10 +599,10 @@ CONFIG_SCHEMA = {
                 'key': 'LITELLM_MODEL',
                 'label': 'LiteLLM Model',
                 'type': 'text',
-                'default': 'gpt-4o-mini',
+                'default': 'openai/gpt-5.4',
                 'link': 'https://docs.litellm.ai/docs/providers',
                 'link_text': 'settings.link.viewProviders',
-                'description': 'Model ID in provider/model format, e.g. anthropic/claude-sonnet-4-20250514, gemini/gemini-2.5-flash, azure/gpt-4o',
+                'description': 'LiteLLM model ID, usually provider/model format, e.g. openai/gpt-5.4, anthropic/claude-sonnet-4-20250514, gemini/gemini-2.5-flash',
                 'group': 'litellm'
             },
             {
@@ -706,7 +692,6 @@ CONFIG_SCHEMA = {
         ]
     },
 
-    # ==================== 3. 实盘交易 ====================
     'trading': {
         'title': 'Live Trading',
         'icon': 'stock',
@@ -765,7 +750,6 @@ CONFIG_SCHEMA = {
         ]
     },
 
-    # ==================== 4. 数据源配置 ====================
     'data_source': {
         'title': 'Data Sources',
         'icon': 'database',
@@ -900,7 +884,6 @@ CONFIG_SCHEMA = {
         ]
     },
 
-    # ==================== 5. 邮件配置 ====================
     'email': {
         'title': 'Email (SMTP)',
         'icon': 'mail',
@@ -958,7 +941,6 @@ CONFIG_SCHEMA = {
         ]
     },
 
-    # ==================== 6. 短信配置 ====================
     'sms': {
         'title': 'SMS (Twilio)',
         'icon': 'phone',
@@ -1069,7 +1051,7 @@ CONFIG_SCHEMA = {
                 'key': 'AI_ENSEMBLE_MODELS',
                 'label': 'Ensemble Models',
                 'type': 'text',
-                'default': 'openai/gpt-4o,openai/gpt-4o-mini',
+                'default': 'openai/gpt-5.4,openai/gpt-4o-mini',
                 'description': 'Comma-separated model IDs for ensemble voting'
             },
             {
@@ -1096,7 +1078,6 @@ CONFIG_SCHEMA = {
         ]
     },
 
-    # ==================== 8. 网络代理 ====================
     'network': {
         'title': 'Network & Proxy',
         'icon': 'global',
@@ -1112,7 +1093,6 @@ CONFIG_SCHEMA = {
         ]
     },
 
-    # ==================== 10. 注册与 OAuth ====================
     'security': {
         'title': 'Registration & OAuth',
         'icon': 'safety',
@@ -1290,7 +1270,6 @@ CONFIG_SCHEMA = {
         ]
     },
 
-    # ==================== 11. 计费配置 ====================
     'billing': {
         'title': 'Billing & Credits',
         'icon': 'dollar',
@@ -1446,6 +1425,13 @@ CONFIG_SCHEMA = {
                 'description': 'Credits per AI strategy/indicator code generation (higher token usage)'
             },
             {
+                'key': 'BILLING_COST_AI_TUNING',
+                'label': 'AI Parameter Tuning Cost',
+                'type': 'number',
+                'default': '50',
+                'description': 'Credits per AI parameter tuning run (multi-round model calls plus backtests)'
+            },
+            {
                 'key': 'BILLING_COST_AI_COPILOT_CHAT',
                 'label': 'AI Copilot Chat Cost',
                 'type': 'number',
@@ -1498,15 +1484,12 @@ def read_env_file():
         with open(ENV_FILE_PATH, 'r', encoding='utf-8') as f:
             for line in f:
                 line = line.strip()
-                # 跳过空行和注释
                 if not line or line.startswith('#'):
                     continue
-                # 解析 KEY=VALUE
                 if '=' in line:
                     key, value = line.split('=', 1)
                     key = key.strip()
                     value = value.strip()
-                    # 移除引号
                     if (value.startswith('"') and value.endswith('"')) or \
                        (value.startswith("'") and value.endswith("'")):
                         value = value[1:-1]
@@ -1522,7 +1505,6 @@ def write_env_file(env_values):
     lines = []
     existing_keys = set()
     
-    # 读取原文件保留格式
     if os.path.exists(ENV_FILE_PATH):
         try:
             with open(ENV_FILE_PATH, 'r', encoding='utf-8') as f:
@@ -1530,18 +1512,15 @@ def write_env_file(env_values):
                     original_line = line
                     stripped = line.strip()
                     
-                    # 保留空行和注释
                     if not stripped or stripped.startswith('#'):
                         lines.append(original_line)
                         continue
                     
-                    # 更新已存在的键
                     if '=' in stripped:
                         key = stripped.split('=', 1)[0].strip()
                         if key in env_values:
                             existing_keys.add(key)
                             value = env_values[key]
-                            # 如果值包含特殊字符，用引号包裹
                             if ' ' in str(value) or '"' in str(value) or "'" in str(value):
                                 lines.append(f'{key}="{value}"\n')
                             else:
@@ -1553,7 +1532,6 @@ def write_env_file(env_values):
         except Exception as e:
             logger.error(f"Failed to read .env file for update: {e}")
     
-    # 添加新的键
     new_keys = set(env_values.keys()) - existing_keys
     if new_keys:
         if lines and not lines[-1].endswith('\n'):
@@ -1566,7 +1544,6 @@ def write_env_file(env_values):
             else:
                 lines.append(f'{key}={value}\n')
     
-    # 写入文件
     try:
         with open(ENV_FILE_PATH, 'w', encoding='utf-8') as f:
             f.writelines(lines)
@@ -1709,7 +1686,6 @@ def get_settings_values():
     """Return current settings values including secrets (admin only)."""
     env_values = read_env_file()
     
-    # 构建返回数据，返回真实值
     result = {}
     for group_key, group in CONFIG_SCHEMA.items():
         result[group_key] = {}
@@ -1717,7 +1693,6 @@ def get_settings_values():
             key = item['key']
             value = env_values.get(key, item.get('default', ''))
             result[group_key][key] = value
-            # 标记密码类型是否已配置
             if item['type'] == 'password':
                 result[group_key][f'{key}_configured'] = bool(value)
     
@@ -1738,10 +1713,8 @@ def save_settings():
         if not data:
             return jsonify({'code': 0, 'msg': 'Invalid request payload'})
         
-        # 读取当前配置
         current_env = read_env_file()
         
-        # 更新配置
         updates = {}
         for group_key, group_values in data.items():
             if group_key not in CONFIG_SCHEMA:
@@ -1752,23 +1725,17 @@ def save_settings():
                 if key in group_values:
                     new_value = group_values[key]
                     
-                    # 空值处理
                     if new_value is None or new_value == '':
                         if not item.get('required', True):
                             updates[key] = ''
                     else:
                         updates[key] = str(new_value)
         
-        # 合并更新
         current_env.update(updates)
         
-        # 写入文件
         if write_env_file(current_env):
-            # 清除配置缓存
             clear_config_cache()
-            # 热重载运行时环境变量（无需重启进程）
             _reload_runtime_env()
-            # 重置依赖配置的服务单例（下次请求自动按新配置重建）
             _refresh_runtime_services()
             
             return jsonify({
@@ -1806,7 +1773,6 @@ def get_openrouter_balance():
                 'data': None
             })
         
-        # 调用 OpenRouter API 查询余额
         # https://openrouter.ai/docs#limits
         resp = requests.get(
             'https://openrouter.ai/api/v1/auth/key',
@@ -1819,7 +1785,6 @@ def get_openrouter_balance():
         
         if resp.status_code == 200:
             data = resp.json()
-            # OpenRouter 返回格式: {"data": {"label": "...", "usage": 0.0, "limit": null, ...}}
             key_data = data.get('data', {})
             usage = key_data.get('usage', 0)  # 已使用金额
             limit = key_data.get('limit')  # 限额（可能为null表示无限制）
@@ -1877,7 +1842,6 @@ def test_connection():
         service = data.get('service')
         
         if service == 'openrouter':
-            # 测试 OpenRouter 连接
             from app.services.llm import LLMService
             llm = LLMService()
             result = llm.test_connection()
@@ -1887,7 +1851,6 @@ def test_connection():
                 return jsonify({'code': 0, 'msg': 'OpenRouter connection failed'})
         
         elif service == 'finnhub':
-            # 测试 Finnhub 连接
             import requests
             api_key = data.get('api_key') or os.getenv('FINNHUB_API_KEY')
             if not api_key:

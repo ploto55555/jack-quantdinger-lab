@@ -7,12 +7,39 @@ from flask import g, jsonify, request
 from app.routes.strategy_blueprint import strategy_blp
 from app.routes.strategy_services import get_backtest_service, get_strategy_service
 from app.services.backtest_limits import validate_backtest_range
+from app.services.script_source import get_script_source_service
 from app.services.strategy_snapshot import StrategySnapshotResolver
 from app.utils.auth import login_required
 from app.utils.logger import get_logger
 
 
 logger = get_logger(__name__)
+
+
+def _build_script_source_strategy(source: dict, script_source_id: int, override_config: dict) -> dict:
+    override = override_config if isinstance(override_config, dict) else {}
+    metadata = source.get('metadata') or {}
+    last_run_config = metadata.get('last_run_config') or {}
+    market = str(
+        override.get('market')
+        or override.get('market_category')
+        or last_run_config.get('market_category')
+        or 'Crypto'
+    ).strip() or 'Crypto'
+    return {
+        'id': None,
+        'strategy_name': override.get('strategy_name') or source.get('name') or f'Script Source #{script_source_id}',
+        'strategy_type': 'ScriptStrategy',
+        'strategy_mode': 'script',
+        'strategy_code': '',
+        'market_category': market,
+        'status': 'draft',
+        'trading_config': {
+            **override,
+            'market_category': market,
+            'script_source_id': script_source_id,
+        },
+    }
 
 
 @strategy_blp.route('/strategies/backtest', methods=['POST'])
@@ -22,20 +49,30 @@ def run_strategy_backtest():
         payload = request.get_json() or {}
         user_id = g.user_id
         strategy_id = int(payload.get('strategyId') or 0)
-        if not strategy_id:
-            return jsonify({'code': 0, 'msg': 'strategyId is required', 'data': None}), 400
+        script_source_id = int(payload.get('scriptSourceId') or payload.get('sourceId') or 0)
+        if not strategy_id and not script_source_id:
+            return jsonify({'code': 0, 'msg': 'strategyId or scriptSourceId is required', 'data': None}), 400
 
         start_date_str = str(payload.get('startDate') or '').strip()
         end_date_str = str(payload.get('endDate') or '').strip()
         if not start_date_str or not end_date_str:
             return jsonify({'code': 0, 'msg': 'startDate and endDate are required', 'data': None}), 400
 
-        strategy = get_strategy_service().get_strategy(strategy_id, user_id=user_id)
-        if not strategy:
-            return jsonify({'code': 0, 'msg': 'Strategy not found', 'data': None}), 404
+        override_config = payload.get('overrideConfig') or {}
+        if not isinstance(override_config, dict):
+            override_config = {}
+        if strategy_id:
+            strategy = get_strategy_service().get_strategy(strategy_id, user_id=user_id)
+            if not strategy:
+                return jsonify({'code': 0, 'msg': 'Strategy not found', 'data': None}), 404
+        else:
+            source = get_script_source_service().get_source(script_source_id, user_id=user_id)
+            if not source:
+                return jsonify({'code': 0, 'msg': 'Script source not found', 'data': None}), 404
+            strategy = _build_script_source_strategy(source, script_source_id, override_config)
 
         resolver = StrategySnapshotResolver(user_id=user_id)
-        snapshot = resolver.resolve(strategy, payload.get('overrideConfig') or {})
+        snapshot = resolver.resolve(strategy, override_config)
         snapshot['user_id'] = user_id
 
         start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
@@ -93,16 +130,17 @@ def run_strategy_backtest():
             result=result,
             code=snapshot.get('code') or '',
         )
-        try:
-            get_strategy_service().patch_trading_config(
-                strategy_id,
-                {
-                    'lifecycle_backtested_at': datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
-                },
-                user_id=user_id,
-            )
-        except Exception as _lc_err:
-            logger.warning(f"lifecycle_backtested patch skipped: {_lc_err}")
+        if strategy_id:
+            try:
+                get_strategy_service().patch_trading_config(
+                    strategy_id,
+                    {
+                        'lifecycle_backtested_at': datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
+                    },
+                    user_id=user_id,
+                )
+            except Exception as _lc_err:
+                logger.warning(f"lifecycle_backtested patch skipped: {_lc_err}")
         return jsonify({'code': 1, 'msg': 'success', 'data': {'runId': run_id, 'result': result}})
     except ValueError as e:
         return jsonify({'code': 0, 'msg': str(e), 'data': None}), 400
@@ -112,10 +150,18 @@ def run_strategy_backtest():
         try:
             payload = payload if isinstance(payload, dict) else {}
             strategy_id = int(payload.get('strategyId') or 0)
+            script_source_id = int(payload.get('scriptSourceId') or payload.get('sourceId') or 0)
+            override_config = payload.get('overrideConfig') or {}
+            if not isinstance(override_config, dict):
+                override_config = {}
             strategy = get_strategy_service().get_strategy(strategy_id, user_id=g.user_id) if strategy_id else None
+            if not strategy and script_source_id:
+                source = get_script_source_service().get_source(script_source_id, user_id=g.user_id)
+                if source:
+                    strategy = _build_script_source_strategy(source, script_source_id, override_config)
             if strategy:
                 resolver = StrategySnapshotResolver(user_id=g.user_id)
-                snapshot = resolver.resolve(strategy, payload.get('overrideConfig') or {})
+                snapshot = resolver.resolve(strategy, override_config)
                 snapshot['user_id'] = g.user_id
                 get_backtest_service().persist_run(
                     user_id=g.user_id,
@@ -151,23 +197,47 @@ def get_strategy_backtest_history():
     try:
         user_id = g.user_id
         strategy_id = int(request.args.get('strategyId') or request.args.get('id') or 0)
-        if not strategy_id:
-            return jsonify({'code': 0, 'msg': 'strategyId is required', 'data': None}), 400
+        script_source_id = int(request.args.get('scriptSourceId') or request.args.get('sourceId') or 0)
+        if not strategy_id and not script_source_id:
+            return jsonify({'code': 0, 'msg': 'strategyId or scriptSourceId is required', 'data': None}), 400
         limit = max(1, min(int(request.args.get('limit') or 50), 200))
         offset = max(0, int(request.args.get('offset') or 0))
         symbol = (request.args.get('symbol') or '').strip()
         market = (request.args.get('market') or '').strip()
         timeframe = (request.args.get('timeframe') or '').strip()
-        rows = get_backtest_service().list_runs(
-            user_id=user_id,
-            strategy_id=strategy_id,
-            limit=limit,
-            offset=offset,
-            symbol=symbol,
-            market=market,
-            timeframe=timeframe,
-        )
-        rows = [r for r in rows if str(r.get('run_type') or '').startswith('strategy_')]
+        if script_source_id and not strategy_id:
+            # Script source backtests intentionally do not create rows in
+            # qd_strategies_trading. The durable identity lives in
+            # config_snapshot.strategyMeta.scriptSourceId.
+            candidate_rows = get_backtest_service().list_runs(
+                user_id=user_id,
+                run_type='strategy_script',
+                limit=max(limit + offset, 200),
+                offset=0,
+                symbol=symbol,
+                market=market,
+                timeframe=timeframe,
+            )
+            rows = []
+            for row in candidate_rows:
+                cfg = row.get('config_snapshot') or {}
+                meta = cfg.get('strategyMeta') or {}
+                signal = cfg.get('signalConfig') or {}
+                meta_source_id = meta.get('scriptSourceId') or signal.get('scriptSourceId')
+                if str(meta_source_id or '') == str(script_source_id):
+                    rows.append(row)
+            rows = rows[offset:offset + limit]
+        else:
+            rows = get_backtest_service().list_runs(
+                user_id=user_id,
+                strategy_id=strategy_id,
+                limit=limit,
+                offset=offset,
+                symbol=symbol,
+                market=market,
+                timeframe=timeframe,
+            )
+            rows = [r for r in rows if str(r.get('run_type') or '').startswith('strategy_')]
         return jsonify({'code': 1, 'msg': 'success', 'data': rows})
     except Exception as e:
         logger.error(f"get_strategy_backtest_history failed: {str(e)}")

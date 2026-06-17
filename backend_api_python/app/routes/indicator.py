@@ -625,7 +625,6 @@ def save_indicator():
 
         now = _now_ts()  # For BIGINT fields (createtime, updatetime)
 
-        # 检查用户是否是管理员（管理员发布的指标自动通过审核）
         user_role = getattr(g, 'user_role', 'user')
         is_admin = user_role == 'admin'
         
@@ -641,7 +640,6 @@ def save_indicator():
                 cur.execute("ALTER TABLE qd_indicator_codes ADD COLUMN IF NOT EXISTS description_i18n JSONB")
             except Exception:
                 pass
-            # 市场购买的副本不可改库中源码：应「另存为」新建 is_buy=0 的指标再编辑
             if indicator_id and indicator_id > 0:
                 cur.execute(
                     "SELECT is_buy FROM qd_indicator_codes WHERE id = ? AND user_id = ?",
@@ -658,7 +656,6 @@ def save_indicator():
                         }
                     ), 403
             if indicator_id and indicator_id > 0:
-                # 检查是否从未发布改为发布，需要设置审核状态
                 if publish_to_community:
                     cur.execute(
                         "SELECT publish_to_community, review_status FROM qd_indicator_codes WHERE id = ? AND user_id = ?",
@@ -666,8 +663,6 @@ def save_indicator():
                     )
                     existing = cur.fetchone()
                     was_published = existing and existing.get('publish_to_community')
-                    # 如果之前未发布，现在发布，设置审核状态
-                    # 管理员发布的直接通过，普通用户需要待审核
                     new_review_status = 'approved' if is_admin else 'pending'
                     reviewer_id = user_id if is_admin else None
                     if not was_published:
@@ -704,7 +699,6 @@ def save_indicator():
                              new_review_status, new_review_status, reviewer_id, now, indicator_id, user_id),
                         )
                 else:
-                    # 取消发布，清除审核状态
                     cur.execute(
                         """
                         UPDATE qd_indicator_codes
@@ -718,7 +712,6 @@ def save_indicator():
                         (name, code, description, publish_to_community, pricing_type, price, preview_image, asset_type, now, indicator_id, user_id),
                     )
             else:
-                # 新建指标 - 管理员发布的直接通过，普通用户需要待审核
                 review_status = None
                 if publish_to_community:
                     review_status = 'approved' if is_admin else 'pending'
@@ -737,15 +730,7 @@ def save_indicator():
             cur.close()
 
         # ============================================================
-        # 多语言：发布到指标市场时同步触发 LLM 翻译
         # ============================================================
-        # 设计取舍：
-        #   - 仅在 publish_to_community=1 时才翻译，私有指标不浪费 LLM 额度。
-        #   - 同步阻塞（一次调用约 2-5s）。如果以后 P99 超过用户耐心，可改成
-        #     后台 worker；现在保持同步是为了「保存成功 = 全语言立即可见」
-        #     最简单的 UX 契约。
-        #   - 翻译失败不会让保存失败：translate_indicator 内部 try/except，
-        #     返回 (None, None, src) 时下游接口仍能 fallback 到原文。
         if publish_to_community and indicator_id > 0:
             try:
                 ui_lang = (
@@ -784,7 +769,6 @@ def save_indicator():
                     db.commit()
                     cur.close()
             except Exception as _e:
-                # 翻译是 nice-to-have，永远不能让 save_indicator 失败。
                 logger.warning(f"save_indicator: i18n translation skipped: {_e}")
 
         return jsonify({"code": 1, "msg": "success", "data": {"id": indicator_id, "userid": user_id}})

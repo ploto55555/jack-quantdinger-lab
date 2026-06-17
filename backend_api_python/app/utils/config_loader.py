@@ -1,4 +1,4 @@
-"""
+﻿"""
 Config loader (local-only).
 
 This project is fully localized: all sensitive configuration should come from
@@ -18,7 +18,7 @@ from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-# 配置缓存
+# Config cache.
 _config_cache: Optional[Dict[str, Any]] = None
 _env_loaded = False
 
@@ -53,7 +53,7 @@ def load_addon_config() -> Dict[str, Any]:
     """
     global _config_cache
     
-    # 如果缓存存在，直接返回
+    # Return cached config when available.
     if _config_cache is not None:
         return _config_cache
     _load_env_files_once()
@@ -201,16 +201,16 @@ def load_addon_config() -> Dict[str, Any]:
 
 def _convert_config_value(value: str, value_type: str) -> Any:
     """
-    根据类型转换配置值（与PHP端convertConfigValue方法保持一致）
-    
+    Convert configuration values by type.
+
     Args:
-        value: 配置值字符串（可能为None）
-        value_type: 配置类型
-        
+        value: Raw configuration value string.
+        value_type: Target configuration type.
+
     Returns:
-        转换后的配置值
+        Converted configuration value.
     """
-    # 处理 None 或空值
+    # Handle None or empty values.
     if value is None or value == '':
         if value_type == 'int':
             return 0
@@ -240,7 +240,7 @@ def _convert_config_value(value: str, value_type: str) -> Any:
             return str(value) if value is not None else ''
     except (ValueError, TypeError) as e:
         logger.warning(f"Config value type conversion failed: value={value}, type={value_type}, error={str(e)}")
-        # 转换失败时返回默认值
+        # Return the raw value when conversion fails.
         if value_type == 'int':
             return 0
         elif value_type == 'float':
@@ -255,10 +255,10 @@ def _convert_config_value(value: str, value_type: str) -> Any:
 
 def get_internal_api_key() -> Optional[str]:
     """
-    获取内部API密钥（优先从环境变量读取）
-    
+    Get the internal API key from environment-backed configuration.
+
     Returns:
-        内部API密钥，如果未配置则返回None
+        Internal API key, or None when unset.
     """
     try:
         env_val = os.getenv('INTERNAL_API_KEY', '').strip()
@@ -280,9 +280,7 @@ def get_internal_api_key() -> Optional[str]:
 
 
 def clear_config_cache():
-    """
-    清除配置缓存（配置更新后调用）
-    """
+    """Clear the configuration cache."""
     global _config_cache, _env_loaded
     _config_cache = None
     _env_loaded = False

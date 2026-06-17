@@ -34,12 +34,12 @@ class LLMProvider(Enum):
 PROVIDER_CONFIGS = {
     LLMProvider.OPENROUTER: {
         "base_url": "https://openrouter.ai/api/v1",
-        "default_model": "openai/gpt-4o",
+        "default_model": "openai/gpt-5.4",
         "fallback_model": "openai/gpt-4o-mini",
     },
     LLMProvider.OPENAI: {
         "base_url": "https://api.openai.com/v1",
-        "default_model": "gpt-4o",
+        "default_model": "gpt-5.4",
         "fallback_model": "gpt-4o-mini",
     },
     LLMProvider.GOOGLE: {
@@ -59,7 +59,7 @@ PROVIDER_CONFIGS = {
     },
     LLMProvider.ATLASCLOUD: {
         "base_url": "https://api.atlascloud.ai/v1",
-        "default_model": "deepseek-v3",
+        "default_model": "openai/gpt-5.4",
         "fallback_model": "deepseek-v3",
     },
     LLMProvider.CUSTOM: {
@@ -74,7 +74,7 @@ PROVIDER_CONFIGS = {
     },
     LLMProvider.LITELLM: {
         "base_url": "",  # LiteLLM SDK handles routing
-        "default_model": "gpt-4o-mini",
+        "default_model": "openai/gpt-5.4",
         "fallback_model": "gpt-4o-mini",
     },
 }
@@ -424,7 +424,7 @@ class LLMService:
         """
         Normalize model name for the target provider.
         
-        Frontend may send OpenRouter-style model names (e.g., 'openai/gpt-4o').
+        Frontend may send OpenRouter-style model names (e.g., 'openai/gpt-5.4').
         This converts them to the correct format for each provider.
         """
         if not model:
@@ -432,12 +432,23 @@ class LLMService:
         
         model = model.strip()
         
-        # LiteLLM and OpenRouter use provider/model format natively
+        # LiteLLM and OpenRouter use provider/model format natively.
         if provider in (LLMProvider.OPENROUTER, LLMProvider.LITELLM):
+            return model
+
+        # AtlasCloud is OpenAI-compatible and may expose routed model ids such
+        # as openai/gpt-5.4. Keep third-party prefixes intact, while still
+        # accepting atlascloud/model as a convenience alias.
+        if provider == LLMProvider.ATLASCLOUD:
+            if '/' in model:
+                prefix, actual_model = model.split('/', 1)
+                if prefix.lower() in ('atlascloud', 'atlas'):
+                    return actual_model
+                return model
             return model
         
         # For direct providers, extract the model name from OpenRouter format
-        # e.g., 'openai/gpt-4o' -> 'gpt-4o'
+        # e.g., 'openai/gpt-5.4' -> 'gpt-5.4'
         #       'google/gemini-1.5-flash' -> 'gemini-1.5-flash'
         #       'deepseek/deepseek-chat' -> 'deepseek-chat'
         #       'x-ai/grok-beta' -> 'grok-beta'
@@ -464,7 +475,7 @@ class LLMService:
                 return actual_model
             
             # If model prefix doesn't match current provider, use provider's default model
-            # This prevents sending 'gpt-4o' to DeepSeek, etc.
+            # This prevents sending a wrong provider's model name to DeepSeek, etc.
             logger.warning(f"Model '{model}' doesn't match provider '{provider.value}', using default model")
             return self.get_default_model(provider)
         
@@ -505,7 +516,7 @@ class LLMService:
         
         Args:
             messages: List of message dicts with 'role' and 'content'
-            model: Model name (uses provider default if not specified). Supports OpenRouter format (e.g., 'openai/gpt-4o')
+            model: Model name (uses provider default if not specified). Supports OpenRouter format (e.g., 'openai/gpt-5.4')
             temperature: Sampling temperature
             use_fallback: Whether to try fallback model on failure
             provider: Override the service's default provider

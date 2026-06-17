@@ -30,6 +30,7 @@ from app.routes import strategy_logs_routes  # noqa: E402,F401
 from app.routes import strategy_notifications  # noqa: E402,F401
 from app.routes import strategy_positions_routes  # noqa: E402,F401
 from app.routes import strategy_review_routes  # noqa: E402,F401
+from app.routes import script_source_routes  # noqa: E402,F401
 
 
 def _strategy_live_lock_key(strategy: Dict[str, Any], user_id: int) -> Optional[Tuple[Any, ...]]:
@@ -892,15 +893,25 @@ def publish_strategy_template():
     """Publish script strategy code to marketplace as script_template asset."""
     try:
         payload = request.get_json() or {}
+        source_id = int(payload.get('sourceId') or payload.get('source_id') or payload.get('scriptSourceId') or 0)
+        source = None
+        if source_id:
+            from app.services.script_source import get_script_source_service
+            source = get_script_source_service().get_source(source_id, user_id=g.user_id)
+            if not source:
+                return jsonify({'code': 0, 'msg': 'Script source not found', 'data': None}), 404
+
         strategy_id = int(payload.get('strategyId') or payload.get('strategy_id') or 0)
-        if not strategy_id:
+        if not strategy_id and not source:
             return jsonify({'code': 0, 'msg': 'strategyId is required', 'data': None}), 400
 
-        strategy = get_strategy_service().get_strategy(strategy_id, user_id=g.user_id)
-        if not strategy:
-            return jsonify({'code': 0, 'msg': 'Strategy not found', 'data': None}), 404
+        strategy = None
+        if strategy_id:
+            strategy = get_strategy_service().get_strategy(strategy_id, user_id=g.user_id)
+            if not strategy:
+                return jsonify({'code': 0, 'msg': 'Strategy not found', 'data': None}), 404
 
-        code = (strategy.get('strategy_code') or '').strip()
+        code = ((source or {}).get('code') or (strategy or {}).get('strategy_code') or '').strip()
         if not code:
             return jsonify({'code': 0, 'msg': 'Strategy has no script code', 'data': None}), 400
 
@@ -912,8 +923,8 @@ def publish_strategy_template():
                 'data': validation,
             }), 400
 
-        name = (payload.get('name') or strategy.get('strategy_name') or '').strip()
-        description = (payload.get('description') or '').strip()
+        name = (payload.get('name') or (source or {}).get('name') or (strategy or {}).get('strategy_name') or '').strip()
+        description = (payload.get('description') or (source or {}).get('description') or '').strip()
         pricing_type = (payload.get('pricingType') or payload.get('pricing_type') or 'free').strip() or 'free'
         try:
             price = float(payload.get('price') or 0)
@@ -936,6 +947,8 @@ def publish_strategy_template():
             is_admin=is_admin,
             existing_indicator_id=existing_indicator_id,
         )
+        if data is not None and source_id:
+            data['source_id'] = source_id
         if not ok:
             return jsonify({'code': 0, 'msg': msg, 'data': data}), 400
         return jsonify({'code': 1, 'msg': 'success', 'data': data})
@@ -1157,14 +1170,20 @@ def ai_generate_strategy():
             system_prompt = (
                 "You are an expert quantitative trading advisor. The user wants to create an automated trading bot.\n"
                 "Based on their description AND the real-time market data provided, recommend one of the four bot types and provide optimal parameters.\n\n"
-                "Available bot types and their parameter schemas:\n"
-                "1. grid - Grid Trading: {upperPrice, lowerPrice, gridCount: int(5-100), amountPerGrid, gridMode: 'arithmetic'|'geometric', "
-                "gridDirection: 'long'|'short'|'neutral', initialPositionPct: 0-100 (initial market position %), "
-                "boundaryAction: 'pause'|'stop_loss'|'hold', adaptiveBounds: true, adaptiveAtrMult: 2.0, waterfallProtection: true, waterfallDropPct: 0.03; "
-                "martingale: waterfallProtection: true, waterfallDropPct: 0.04}\n"
-                "2. martingale - Martingale: {initialAmount: number, multiplier: number(1.1-3.0), maxLayers: int(2-10), priceDropPct: number(1-20), takeProfitPct: number(1-50)}\n"
-                "3. trend - Trend Following: {maPeriod: int(5-200), maType: 'SMA'|'EMA', confirmBars: int(1-5), positionPct: number(10-100), direction: 'long'|'short'|'both'}\n"
-                "4. dca - DCA (Dollar-Cost Averaging): {amountEach: number, frequency: 'every_bar'|'hourly'|'4h'|'daily'|'weekly'|'biweekly'|'monthly', totalBudget: number, dipBuyEnabled: bool, dipThreshold: number(1-30)}\n\n"
+                "Available bot types and their parameter schemas. Use these exact frontend keys:\n"
+                "1. grid - Grid Trading: {upperPrice, lowerPrice, gridCount: int(5-100), gridMode: 'arithmetic'|'geometric', "
+                "gridDirection: 'long'|'short'|'neutral', initialPositionPct: number(0-100), "
+                "boundaryAction: 'pause'|'stop_loss'|'hold', adaptiveBounds: boolean, adaptiveAtrMult: number(0.5-5), "
+                "waterfallProtection: boolean, waterfallDropPct: decimal ratio(0.005-0.20; example 0.03 means 3%)}\n"
+                "2. martingale - Martingale: {multiplier: number(1.1-3.0), maxLayers: int(2-10), "
+                "priceDropPct: number(1-20), takeProfitPct: number(0.2-50), stopLossPct: number(1-50), "
+                "direction: 'long'|'short', trailingTpEnabled: boolean, trailingTpCallbackPct: number(0.05-50), "
+                "waterfallProtection: boolean, waterfallDropPct: decimal ratio(0.005-0.20; example 0.04 means 4%)}\n"
+                "3. trend - Trend Following: {maPeriod: int(5-200), maType: 'SMA'|'EMA', confirmBars: int(1-5), "
+                "positionPct: number(10-100), direction: 'long'|'short'|'both', trailingTpEnabled: boolean, "
+                "trailingTpActivationPct: number(0.2-100), trailingTpCallbackPct: number(0.05-50)}\n"
+                "4. dca - DCA (Dollar-Cost Averaging): {frequency: 'every_bar'|'hourly'|'4h'|'daily'|'weekly'|'biweekly'|'monthly', "
+                "dipBuyEnabled: boolean, dipThreshold: number(1-30)}\n\n"
                 f"Bot type x market matrix (single source of truth from broker_market_policy): {dict(BOT_TYPE_MARKETS)}\n"
                 f"{_market_constraint_line}"
                 "Also suggest base config:\n"
@@ -1175,13 +1194,14 @@ def ai_generate_strategy():
                 "- leverage: int(1-125, only for swap; ignored on spot/USStock/Forex)\n"
                 f"- initialCapital: number (in {_quote_label})\n\n"
                 "Risk config:\n"
-                "- stopLossPct: number(0-100)\n"
-                "- takeProfitPct: number(0-1000)\n"
+                "- stopLossPct: number(0-100), stored as a 0-100 UI percent\n"
+                "- takeProfitPct: number(0-1000), stored as a 0-100 UI percent\n"
                 "- maxPosition: number\n\n"
+                "Percent convention: fields ending in Pct are 0-100 UI percentages, except waterfallDropPct, which is a 0-1 decimal ratio.\n"
                 "CRITICAL: If real-time market data is provided, you MUST use it to set realistic and accurate parameters.\n"
                 "For example, for grid trading, the upperPrice and lowerPrice MUST be derived from the actual price range in the market data.\n"
                 "IMPORTANT: Do NOT set initialCapital in baseConfig - leave it as 0 or omit it. The user will enter their own investment amount.\n"
-                "Also do NOT set amountPerGrid, initialAmount(for martingale), or totalBudget(for DCA) - these will be auto-calculated from the user's capital.\n\n"
+                "Also do NOT set amountPerGrid, initialAmount(for martingale), amountEach, or totalBudget(for DCA) - these will be auto-calculated from the user's capital.\n\n"
                 "Return ONLY a single JSON object with this structure:\n"
                 "{\n"
                 '  "botType": "grid"|"martingale"|"trend"|"dca",\n'
@@ -1264,6 +1284,95 @@ def ai_generate_strategy():
             if detected_symbol:
                 base_cfg['symbol'] = detected_symbol
             result['baseConfig'] = base_cfg
+
+            params = result.get('strategyParams') if isinstance(result.get('strategyParams'), dict) else {}
+            risk_cfg = result.get('riskConfig') if isinstance(result.get('riskConfig'), dict) else {}
+
+            def _num(v, default, min_v=None, max_v=None):
+                try:
+                    n = float(v)
+                except (TypeError, ValueError):
+                    n = float(default)
+                if min_v is not None:
+                    n = max(float(min_v), n)
+                if max_v is not None:
+                    n = min(float(max_v), n)
+                return n
+
+            def _int(v, default, min_v=None, max_v=None):
+                return int(round(_num(v, default, min_v, max_v)))
+
+            def _bool(v, default=False):
+                if isinstance(v, bool):
+                    return v
+                if isinstance(v, str):
+                    return v.strip().lower() in ('1', 'true', 'yes', 'on')
+                return default if v is None else bool(v)
+
+            def _ratio(v, default):
+                n = _num(v, default, 0.001, 100)
+                return n / 100 if n > 1 else n
+
+            bot_type = result.get('botType')
+            market_type = base_cfg.get('marketType') or 'spot'
+            force_long = market_type == 'spot' or base_cfg.get('marketCategory') in ('USStock', 'Forex')
+
+            if bot_type == 'grid':
+                params.pop('amountPerGrid', None)
+                params.update({
+                    'upperPrice': _num(params.get('upperPrice'), 0, 0),
+                    'lowerPrice': _num(params.get('lowerPrice'), 0, 0),
+                    'gridCount': _int(params.get('gridCount'), 10, 5, 100),
+                    'gridMode': params.get('gridMode') if params.get('gridMode') in ('arithmetic', 'geometric') else 'arithmetic',
+                    'gridDirection': 'long' if force_long else (params.get('gridDirection') if params.get('gridDirection') in ('long', 'short', 'neutral') else 'neutral'),
+                    'initialPositionPct': _num(params.get('initialPositionPct'), 0, 0, 100),
+                    'boundaryAction': params.get('boundaryAction') if params.get('boundaryAction') in ('pause', 'stop_loss', 'hold') else 'pause',
+                    'adaptiveBounds': _bool(params.get('adaptiveBounds'), True),
+                    'adaptiveAtrMult': _num(params.get('adaptiveAtrMult'), 2, 0.5, 5),
+                    'waterfallProtection': _bool(params.get('waterfallProtection'), True),
+                    'waterfallDropPct': _ratio(params.get('waterfallDropPct'), 0.03),
+                })
+            elif bot_type == 'martingale':
+                params.pop('initialAmount', None)
+                params.update({
+                    'multiplier': _num(params.get('multiplier'), 2, 1.1, 3),
+                    'maxLayers': _int(params.get('maxLayers'), 5, 2, 10),
+                    'priceDropPct': _num(params.get('priceDropPct'), 3, 1, 20),
+                    'takeProfitPct': _num(params.get('takeProfitPct') or risk_cfg.get('takeProfitPct'), 2, 0.2, 50),
+                    'stopLossPct': _num(params.get('stopLossPct') or risk_cfg.get('stopLossPct'), 12, 1, 50),
+                    'direction': 'long' if force_long else (params.get('direction') if params.get('direction') in ('long', 'short') else 'long'),
+                    'trailingTpEnabled': _bool(params.get('trailingTpEnabled'), False),
+                    'trailingTpCallbackPct': _num(params.get('trailingTpCallbackPct'), 0.8, 0.05, 50),
+                    'waterfallProtection': _bool(params.get('waterfallProtection'), True),
+                    'waterfallDropPct': _ratio(params.get('waterfallDropPct'), 0.04),
+                })
+            elif bot_type == 'trend':
+                params.update({
+                    'maPeriod': _int(params.get('maPeriod'), 20, 5, 200),
+                    'maType': params.get('maType') if params.get('maType') in ('SMA', 'EMA') else 'EMA',
+                    'confirmBars': _int(params.get('confirmBars'), 2, 1, 5),
+                    'positionPct': _num(params.get('positionPct'), 50, 10, 100),
+                    'direction': 'long' if force_long else (params.get('direction') if params.get('direction') in ('long', 'short', 'both') else 'both'),
+                    'trailingTpEnabled': _bool(params.get('trailingTpEnabled'), False),
+                    'trailingTpActivationPct': _num(params.get('trailingTpActivationPct'), 5, 0.2, 100),
+                    'trailingTpCallbackPct': _num(params.get('trailingTpCallbackPct'), 1, 0.05, 50),
+                })
+            elif bot_type == 'dca':
+                params.pop('amountEach', None)
+                params.pop('totalBudget', None)
+                freq = str(params.get('frequency') or '').strip().lower()
+                allowed = {'every_bar', 'hourly', '4h', 'daily', 'weekly', 'biweekly', 'monthly'}
+                params.update({
+                    'frequency': freq if freq in allowed else 'daily',
+                    'dipBuyEnabled': _bool(params.get('dipBuyEnabled'), False),
+                    'dipThreshold': _num(params.get('dipThreshold'), 5, 1, 30),
+                })
+
+            risk_cfg['stopLossPct'] = _num(risk_cfg.get('stopLossPct'), 10, 0, 100)
+            risk_cfg['takeProfitPct'] = _num(risk_cfg.get('takeProfitPct'), 20, 0, 1000)
+            risk_cfg['maxPosition'] = _num(risk_cfg.get('maxPosition'), 0, 0)
+            result['strategyParams'] = params
+            result['riskConfig'] = risk_cfg
 
             if result.get('botType') == 'dca':
                 params = result.get('strategyParams') if isinstance(result.get('strategyParams'), dict) else {}

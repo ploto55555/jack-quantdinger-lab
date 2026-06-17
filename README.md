@@ -5,8 +5,8 @@
 
   <h1>QuantDinger</h1>
   <h3>The open-source AI infrastructure layer for quant trading</h3>
-  <p><strong>Turn trading ideas into Python strategies, backtests, paper trading, and live execution — all in one self-hosted stack.</strong></p>
-  <p><em>AI research → Strategy code → Backtest → Paper/Live execution → Monitoring</em></p>
+  <p><strong>Turn trading ideas into Python strategies, backtests, paper trading, and live execution - all in one self-hosted stack.</strong></p>
+  <p><em>AI research -> Strategy code -> Backtest -> Paper/Live execution -> Monitoring</em></p>
 
   <div align="center" style="max-width: 680px; margin: 1.25rem auto 0; padding: 20px 22px 22px; border: 1px solid #d1d9e0; border-radius: 16px;">
     <p style="margin: 0 0 14px; line-height: 1.65;">
@@ -164,7 +164,7 @@ QuantDinger is a **self-hosted, local-first** quantitative infrastructure layer 
 
 <div align="center">
   <img src="docs/screenshots/architecture.png" alt="QuantDinger system architecture: Data Sources → Indicator / Signal / Strategy / Backtesting / AI Analysis layers → Execution, with the closed-loop quant workflow (Idea → Indicator → Strategy → Backtest → Optimize → Execute → Monitor)" width="960">
-  <p><sub><em>Closed loop: <strong>AI research → Strategy code → Backtest → Paper/Live execution → Monitoring</strong> — market data in, audited orders out.</em></sub></p>
+  <p><em>AI research -> Strategy code -> Backtest -> Paper/Live execution -> Monitoring</em></p>
 </div>
 
 ## Technical highlights
@@ -250,7 +250,7 @@ Deeper references: [AI Integration design](docs/agent/AI_INTEGRATION_DESIGN.md) 
       <br/>
       <sub>
         <a href="https://www.youtube.com/watch?v=wHIvvv6fmHA">
-          <strong>鈻?Watch Product Demo on YouTube</strong>
+          <strong>Watch Product Demo on YouTube</strong>
         </a>
       </sub>
       <br/>
@@ -485,7 +485,7 @@ AtlasCloud is also supported as an OpenAI-compatible provider. Use the official 
 ```env
 LLM_PROVIDER=atlascloud
 ATLASCLOUD_API_KEY=your_api_key
-ATLASCLOUD_MODEL=deepseek-v3
+ATLASCLOUD_MODEL=openai/gpt-5.4
 ATLASCLOUD_BASE_URL=https://api.atlascloud.ai/v1
 ```
 
@@ -690,7 +690,7 @@ Economic calendar data is free-first: QuantDinger uses the no-key AkShare/Wallst
 | [Human Web API (OpenAPI)](docs/api/openapi.yaml) | flask-smorest spec — browse with [`docs/api/index.html`](docs/api/index.html) (HTTP server required) |
 | [API conventions](docs/API_CONVENTIONS.md) | Auth, envelopes, visibility tiers |
 | [Changelog](docs/CHANGELOG.md) | Releases & migrations |
-| [README (涓枃)](docs/README_CN.md) | Chinese overview |
+| [README (Chinese)](docs/README_CN.md) | Chinese overview |
 | [Cloud deployment](docs/CLOUD_DEPLOYMENT_EN.md) | HTTPS, reverse proxy, production |
 | [Multi-user](docs/multi-user-setup.md) | Postgres multi-tenant patterns |
 | [Agent environment](docs/agent/AGENT_ENVIRONMENT_DESIGN.md) · [AI integration](docs/agent/AI_INTEGRATION_DESIGN.md) · [Quickstart](docs/agent/AGENT_QUICKSTART.md) · [OpenAPI](docs/agent/agent-openapi.json) · [MCP server](mcp_server/README.md) | Coding agents & MCP (`quantdinger-mcp` on PyPI) |

@@ -12,7 +12,6 @@ from typing import Any, Dict, List
 
 from app.services.indicator_params import IndicatorParamsParser, StrategyConfigParser
 
-# 历史代码里可能出现 @strategy leverage；已由回测面板接管，不计入「未知键」告警
 _IGNORED_STRATEGY_KEYS = frozenset({"leverage"})
 
 

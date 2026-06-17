@@ -441,7 +441,7 @@ AtlasCloud 也已作为 OpenAI-compatible 供应商接入。参考官方 [AtlasC
 ```env
 LLM_PROVIDER=atlascloud
 ATLASCLOUD_API_KEY=your_api_key
-ATLASCLOUD_MODEL=deepseek-v3
+ATLASCLOUD_MODEL=openai/gpt-5.4
 ATLASCLOUD_BASE_URL=https://api.atlascloud.ai/v1
 ```
 
