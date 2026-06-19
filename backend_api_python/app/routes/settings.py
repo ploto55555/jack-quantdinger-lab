@@ -84,7 +84,7 @@ ADVANCED_KEYS = {
     'SEARCH_GOOGLE_API_KEY', 'SEARCH_GOOGLE_CX', 'SEARCH_BING_API_KEY', 'SERPAPI_KEYS',
     'GDELT_BASE_URL', 'GDELT_TIMEOUT', 'GDELT_MAX_RESULTS',
     'ALPHA_VANTAGE_API_KEY', 'ALPHA_VANTAGE_BASE_URL', 'ALPHA_VANTAGE_TIMEOUT', 'ALPHA_VANTAGE_NEWS_LIMIT',
-    'AI_CODE_GEN_MODEL',
+    'AI_CODE_GEN_MODEL', 'LLM_PROXY_URL', 'LLM_USE_SYSTEM_PROXY',
     'OPENAI_BASE_URL', 'DEEPSEEK_BASE_URL', 'GROK_BASE_URL', 'ATLASCLOUD_BASE_URL', 'MINIMAX_BASE_URL',
     # Trading internals
     'ORDER_MODE', 'MAKER_WAIT_SEC',
@@ -631,6 +631,21 @@ CONFIG_SCHEMA = {
                 'default': '1D,4H',
                 'required': False,
                 'description': 'Multi-timeframe consensus for fast AI analysis. Comma-separated, e.g. "1D,4H"'
+            },
+            {
+                'key': 'LLM_PROXY_URL',
+                'label': 'LLM Proxy URL',
+                'type': 'text',
+                'default': '',
+                'required': False,
+                'description': 'Optional dedicated proxy for LLM provider requests. Leave empty for direct LLM access; PROXY_URL is reserved for market data and exchange APIs.'
+            },
+            {
+                'key': 'LLM_USE_SYSTEM_PROXY',
+                'label': 'Use System Proxy for LLM',
+                'type': 'boolean',
+                'default': 'False',
+                'description': 'When enabled, LLM requests inherit HTTP_PROXY / HTTPS_PROXY / ALL_PROXY. Keep disabled unless the configured system proxy is reachable from this backend.'
             },
             {
                 'key': 'SEARCH_PROVIDER',
@@ -1224,7 +1239,7 @@ CONFIG_SCHEMA = {
                 'label': 'Proxy URL',
                 'type': 'text',
                 'required': False,
-                'description': 'Global outbound proxy URL. Used by requests and by crypto data requests when a proxy is needed.'
+                'description': 'Proxy URL for market data, exchange and broker APIs. LLM provider calls are direct by default; use LLM Proxy URL only when an LLM provider must go through a proxy.'
             },
         ]
     },

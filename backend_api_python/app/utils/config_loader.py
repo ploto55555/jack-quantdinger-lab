@@ -133,6 +133,8 @@ def load_addon_config() -> Dict[str, Any]:
 
         # LLM Provider Selection
         ('LLM_PROVIDER', 'llm.provider', 'string'),
+        ('LLM_PROXY_URL', 'llm.proxy_url', 'string'),
+        ('LLM_USE_SYSTEM_PROXY', 'llm.use_system_proxy', 'bool'),
 
         # App
         ('RATE_LIMIT', 'app.rate_limit', 'int'),
