@@ -655,6 +655,23 @@ CREATE INDEX IF NOT EXISTS idx_indicator_codes_user_id ON qd_indicator_codes USI
 CREATE INDEX IF NOT EXISTS idx_indicator_review_status ON qd_indicator_codes USING btree (review_status);
 CREATE INDEX IF NOT EXISTS idx_indicator_codes_source ON qd_indicator_codes USING btree (source_indicator_id);
 
+CREATE TABLE IF NOT EXISTS qd_indicator_code_versions (
+   id serial4 NOT NULL,
+   indicator_id int4 NOT NULL,
+   user_id int4 NOT NULL,
+   version_no int4 NOT NULL,
+   name varchar(255) DEFAULT ''::character varying NOT NULL,
+   description text DEFAULT ''::text NULL,
+   code text NOT NULL,
+   created_at timestamp DEFAULT now(),
+   CONSTRAINT qd_indicator_code_versions_pkey PRIMARY KEY (id),
+   CONSTRAINT qd_indicator_code_versions_indicator_fkey FOREIGN KEY (indicator_id) REFERENCES qd_indicator_codes(id) ON DELETE CASCADE,
+   CONSTRAINT qd_indicator_code_versions_user_fkey FOREIGN KEY (user_id) REFERENCES qd_users(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_indicator_code_versions_indicator ON qd_indicator_code_versions USING btree (indicator_id, version_no DESC);
+CREATE INDEX IF NOT EXISTS idx_indicator_code_versions_user ON qd_indicator_code_versions USING btree (user_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_indicator_code_versions_no ON qd_indicator_code_versions USING btree (indicator_id, version_no);
+
 -- =============================================================================
 -- 10. Watchlist
 -- =============================================================================
@@ -869,6 +886,24 @@ CREATE TABLE IF NOT EXISTS qd_market_symbols (
 
 CREATE INDEX IF NOT EXISTS idx_market_symbols_market ON qd_market_symbols(market);
 CREATE INDEX IF NOT EXISTS idx_market_symbols_is_hot ON qd_market_symbols(market, is_hot);
+CREATE INDEX IF NOT EXISTS idx_market_symbols_market_upper_symbol
+  ON qd_market_symbols(market, UPPER(symbol));
+
+CREATE TABLE IF NOT EXISTS qd_market_symbol_aliases (
+    id SERIAL PRIMARY KEY,
+    market VARCHAR(50) NOT NULL,
+    symbol VARCHAR(50) NOT NULL,
+    alias VARCHAR(255) NOT NULL,
+    is_active INTEGER DEFAULT 1,
+    sort_order INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(market, symbol, alias)
+);
+
+CREATE INDEX IF NOT EXISTS idx_market_symbol_aliases_lookup
+  ON qd_market_symbol_aliases(market, alias);
+CREATE INDEX IF NOT EXISTS idx_market_symbol_aliases_upper_lookup
+  ON qd_market_symbol_aliases(market, UPPER(alias));
 
 -- Seed data: Hot symbols for each market
 INSERT INTO qd_market_symbols (market, symbol, name, exchange, currency, is_active, is_hot, sort_order) VALUES

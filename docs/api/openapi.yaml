@@ -199,8 +199,6 @@ tags:
   description: Interactive Brokers adapter (Internal)
 - name: Alpaca
   description: Alpaca adapter (Internal)
-- name: MT5
-  description: MetaTrader 5 adapter (Internal)
 servers:
 - url: http://localhost:5000
   description: Backend direct (python run.py)
@@ -268,7 +266,7 @@ paths:
       summary: Return the full broker x market x market_type compatibility matrix.
       description: "Response shape (kept stable for the frontend):\n{\n  \"code\"\
         : 1,\n  \"data\": {\n    \"broker_markets\": {\n        \"ibkr\":   {\"USStock\"\
-        : [\"spot\"]},\n        \"mt5\":    {\"Forex\":   [\"spot\"]},\n        \"\
+        : [\"spot\"]},\n        \"\
         alpaca\": {\"USStock\": [\"spot\"], \"Crypto\": [\"spot\"]},\n        \"binance\"\
         : {\"Crypto\":  [\"spot\", \"swap\"]},\n        ...\n    },\n    \"long_only_brokers\"\
         : [\"alpaca\", \"ibkr\"],\n    \"bot_type_markets\": {\n        \"grid\":\
@@ -2726,7 +2724,7 @@ paths:
       tags:
       - Credentials
       operationId: getApiCredentialsDesktopBrokersPolicy
-      description: 'Whether IBKR / MT5 (local TWS or MT5 terminal) may be configured
+      description: 'Whether IBKR (local TWS or IB Gateway) may be configured
         on this deployment.
 
         Frontend uses this to disable options and show guidance before save/test.'
@@ -2792,7 +2790,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/HumanSuccessEnvelope'
       summary: Create a new credential for the current user.
-      description: Supports crypto exchanges, IBKR (US stocks) and MT5 (Forex).
+      description: Supports crypto exchanges, IBKR/Alpaca (US stocks).
       tags:
       - Credentials
       operationId: postApiCredentialsCreate
@@ -3881,246 +3879,6 @@ paths:
       schema:
         type: string
         minLength: 1
-  /api/mt5/status:
-    get:
-      responses:
-        '400':
-          description: Bad Request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HumanErrorEnvelope'
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HumanSuccessEnvelope'
-      summary: Get MT5 connection status.
-      tags:
-      - MT5
-      operationId: getApiMt5Status
-      x-visibility: internal
-  /api/mt5/connect:
-    post:
-      responses:
-        '400':
-          description: Bad Request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HumanErrorEnvelope'
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HumanSuccessEnvelope'
-      summary: Connect to MT5 terminal.
-      description: "Request body:\n{\n    \"login\": 12345678,      // MT5 account\
-        \ number\n    \"password\": \"xxx\",      // MT5 password\n    \"server\"\
-        : \"ICMarkets-Demo\",  // Broker server\n    \"terminal_path\": \"\"     //\
-        \ Optional: path to terminal64.exe\n}"
-      tags:
-      - MT5
-      operationId: postApiMt5Connect
-      x-visibility: internal
-  /api/mt5/disconnect:
-    post:
-      responses:
-        '400':
-          description: Bad Request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HumanErrorEnvelope'
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HumanSuccessEnvelope'
-      summary: Disconnect from MT5 terminal.
-      tags:
-      - MT5
-      operationId: postApiMt5Disconnect
-      x-visibility: internal
-  /api/mt5/account:
-    get:
-      responses:
-        '400':
-          description: Bad Request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HumanErrorEnvelope'
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HumanSuccessEnvelope'
-      summary: Get account information.
-      tags:
-      - MT5
-      operationId: getApiMt5Account
-      x-visibility: internal
-  /api/mt5/positions:
-    get:
-      responses:
-        '400':
-          description: Bad Request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HumanErrorEnvelope'
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HumanSuccessEnvelope'
-      summary: Get open positions.
-      tags:
-      - MT5
-      operationId: getApiMt5Positions
-      x-visibility: internal
-  /api/mt5/orders:
-    get:
-      responses:
-        '400':
-          description: Bad Request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HumanErrorEnvelope'
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HumanSuccessEnvelope'
-      summary: Get pending orders.
-      tags:
-      - MT5
-      operationId: getApiMt5Orders
-      x-visibility: internal
-  /api/mt5/symbols:
-    get:
-      responses:
-        '400':
-          description: Bad Request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HumanErrorEnvelope'
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HumanSuccessEnvelope'
-      summary: Get available symbols.
-      tags:
-      - MT5
-      operationId: getApiMt5Symbols
-      x-visibility: internal
-  /api/mt5/order:
-    post:
-      responses:
-        '400':
-          description: Bad Request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HumanErrorEnvelope'
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HumanSuccessEnvelope'
-      summary: Place an order.
-      description: "Request body:\n{\n    \"symbol\": \"EURUSD\",\n    \"side\": \"\
-        buy\",          // \"buy\" or \"sell\"\n    \"volume\": 0.1,          // Lot\
-        \ size\n    \"orderType\": \"market\",  // \"market\" or \"limit\"\n    \"\
-        price\": 1.0800         // Required for limit orders\n}"
-      tags:
-      - MT5
-      operationId: postApiMt5Order
-      x-visibility: internal
-  /api/mt5/close:
-    post:
-      responses:
-        '400':
-          description: Bad Request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HumanErrorEnvelope'
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HumanSuccessEnvelope'
-      summary: Close a position.
-      description: "Request body:\n{\n    \"ticket\": 123456789,    // Position ticket\n\
-        \    \"volume\": 0.1           // Optional: partial close volume\n}"
-      tags:
-      - MT5
-      operationId: postApiMt5Close
-      x-visibility: internal
-  /api/mt5/order/{ticket}:
-    delete:
-      responses:
-        '400':
-          description: Bad Request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HumanErrorEnvelope'
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HumanSuccessEnvelope'
-      summary: Cancel a pending order.
-      tags:
-      - MT5
-      operationId: deleteApiMt5OrderTicket
-      x-visibility: internal
-    parameters:
-    - in: path
-      name: ticket
-      required: true
-      schema:
-        type: integer
-        minimum: 0
-  /api/mt5/quote:
-    get:
-      responses:
-        '400':
-          description: Bad Request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HumanErrorEnvelope'
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HumanSuccessEnvelope'
-      summary: Get real-time quote.
-      description: 'Query params:
-
-        - symbol: Trading symbol (e.g., EURUSD)'
-      tags:
-      - MT5
-      operationId: getApiMt5Quote
-      x-visibility: internal
   /api/global-market/overview:
     get:
       responses:
@@ -5213,3 +4971,5 @@ paths:
         Same response shape as ai-optimize-sync for IDE compatibility.'
       x-visibility: internal
 openapi: 3.0.3
+
+

@@ -60,6 +60,63 @@ def _extract_indicator_meta_from_code(code: str) -> Dict[str, str]:
     return {"name": name, "description": description}
 
 
+def _ensure_indicator_version_schema(cur) -> None:
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS qd_indicator_code_versions (
+            id SERIAL PRIMARY KEY,
+            indicator_id INTEGER NOT NULL REFERENCES qd_indicator_codes(id) ON DELETE CASCADE,
+            user_id INTEGER NOT NULL REFERENCES qd_users(id) ON DELETE CASCADE,
+            version_no INTEGER NOT NULL,
+            name VARCHAR(255) NOT NULL DEFAULT '',
+            description TEXT DEFAULT '',
+            code TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+        """
+    )
+    cur.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_indicator_code_versions_indicator
+        ON qd_indicator_code_versions (indicator_id, version_no DESC)
+        """
+    )
+    cur.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_indicator_code_versions_user
+        ON qd_indicator_code_versions (user_id)
+        """
+    )
+    cur.execute(
+        """
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_indicator_code_versions_no
+        ON qd_indicator_code_versions (indicator_id, version_no)
+        """
+    )
+
+
+def _insert_indicator_version(cur, indicator_id: int, user_id: int, name: str, description: str, code: str) -> int:
+    cur.execute(
+        """
+        SELECT COALESCE(MAX(version_no), 0) + 1 AS next_version
+        FROM qd_indicator_code_versions
+        WHERE indicator_id = ? AND user_id = ?
+        """,
+        (indicator_id, user_id),
+    )
+    row = cur.fetchone() or {}
+    version_no = int(row.get("next_version") or 1)
+    cur.execute(
+        """
+        INSERT INTO qd_indicator_code_versions
+          (indicator_id, user_id, version_no, name, description, code, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, NOW())
+        """,
+        (indicator_id, user_id, version_no, name or "", description or "", code or ""),
+    )
+    return version_no
+
+
 def _row_to_indicator(row: Dict[str, Any], user_id: int) -> Dict[str, Any]:
     """
     Map database row -> frontend expected indicator shape.
@@ -638,6 +695,7 @@ def save_indicator():
                 cur.execute("ALTER TABLE qd_indicator_codes ADD COLUMN IF NOT EXISTS source_language VARCHAR(16)")
                 cur.execute("ALTER TABLE qd_indicator_codes ADD COLUMN IF NOT EXISTS name_i18n JSONB")
                 cur.execute("ALTER TABLE qd_indicator_codes ADD COLUMN IF NOT EXISTS description_i18n JSONB")
+                _ensure_indicator_version_schema(cur)
             except Exception:
                 pass
             if indicator_id and indicator_id > 0:
@@ -726,6 +784,9 @@ def save_indicator():
                     (user_id, name, code, description, publish_to_community, pricing_type, price, preview_image, vip_free, asset_type, review_status, now, now),
                 )
                 indicator_id = int(cur.lastrowid or 0)
+            if indicator_id and indicator_id > 0:
+                _ensure_indicator_version_schema(cur)
+                _insert_indicator_version(cur, indicator_id, user_id, name, description, code)
             db.commit()
             cur.close()
 
@@ -774,6 +835,133 @@ def save_indicator():
         return jsonify({"code": 1, "msg": "success", "data": {"id": indicator_id, "userid": user_id}})
     except Exception as e:
         logger.error(f"save_indicator failed: {str(e)}", exc_info=True)
+        return jsonify({"code": 0, "msg": str(e), "data": None}), 500
+
+
+@indicator_blp.route("/versions", methods=["GET"])
+@login_required
+def list_indicator_versions():
+    """List saved code versions for one indicator owned by the current user."""
+    try:
+        user_id = g.user_id
+        indicator_id = int(request.args.get("indicatorId") or request.args.get("indicator_id") or 0)
+        if not indicator_id:
+            return jsonify({"code": 0, "msg": "indicatorId is required", "data": []}), 400
+
+        with get_db_connection() as db:
+            cur = db.cursor()
+            _ensure_indicator_version_schema(cur)
+            cur.execute(
+                "SELECT id FROM qd_indicator_codes WHERE id = ? AND user_id = ?",
+                (indicator_id, user_id),
+            )
+            if not cur.fetchone():
+                cur.close()
+                return jsonify({"code": 0, "msg": "indicator not found", "data": []}), 404
+            cur.execute(
+                """
+                SELECT id, indicator_id, version_no, name, description, created_at
+                FROM qd_indicator_code_versions
+                WHERE indicator_id = ? AND user_id = ?
+                ORDER BY version_no DESC
+                LIMIT 100
+                """,
+                (indicator_id, user_id),
+            )
+            rows = cur.fetchall() or []
+            db.commit()
+            cur.close()
+        return jsonify({"code": 1, "msg": "success", "data": rows})
+    except Exception as e:
+        logger.error(f"list_indicator_versions failed: {str(e)}", exc_info=True)
+        return jsonify({"code": 0, "msg": str(e), "data": []}), 500
+
+
+@indicator_blp.route("/versions/<int:version_id>", methods=["GET"])
+@login_required
+def get_indicator_version(version_id: int):
+    """Get one saved code version."""
+    try:
+        user_id = g.user_id
+        with get_db_connection() as db:
+            cur = db.cursor()
+            _ensure_indicator_version_schema(cur)
+            cur.execute(
+                """
+                SELECT id, indicator_id, version_no, name, description, code, created_at
+                FROM qd_indicator_code_versions
+                WHERE id = ? AND user_id = ?
+                """,
+                (version_id, user_id),
+            )
+            row = cur.fetchone()
+            db.commit()
+            cur.close()
+        if not row:
+            return jsonify({"code": 0, "msg": "version not found", "data": None}), 404
+        return jsonify({"code": 1, "msg": "success", "data": row})
+    except Exception as e:
+        logger.error(f"get_indicator_version failed: {str(e)}", exc_info=True)
+        return jsonify({"code": 0, "msg": str(e), "data": None}), 500
+
+
+@indicator_blp.route("/versions/restore", methods=["POST"])
+@login_required
+def restore_indicator_version():
+    """Restore one code version to the current indicator and keep the restore as a new version."""
+    try:
+        data = request.get_json() or {}
+        user_id = g.user_id
+        version_id = int(data.get("versionId") or data.get("version_id") or 0)
+        if not version_id:
+            return jsonify({"code": 0, "msg": "versionId is required", "data": None}), 400
+
+        now = _now_ts()
+        with get_db_connection() as db:
+            cur = db.cursor()
+            _ensure_indicator_version_schema(cur)
+            cur.execute(
+                """
+                SELECT v.indicator_id, v.name, v.description, v.code
+                FROM qd_indicator_code_versions v
+                JOIN qd_indicator_codes i ON i.id = v.indicator_id
+                WHERE v.id = ? AND v.user_id = ? AND i.user_id = ? AND (i.is_buy IS NULL OR i.is_buy = 0)
+                """,
+                (version_id, user_id, user_id),
+            )
+            row = cur.fetchone()
+            if not row:
+                cur.close()
+                return jsonify({"code": 0, "msg": "version not found", "data": None}), 404
+
+            indicator_id = int(row.get("indicator_id") or 0)
+            name = row.get("name") or ""
+            description = row.get("description") or ""
+            code = row.get("code") or ""
+            cur.execute(
+                """
+                UPDATE qd_indicator_codes
+                SET name = ?, description = ?, code = ?, updatetime = ?, updated_at = NOW()
+                WHERE id = ? AND user_id = ? AND (is_buy IS NULL OR is_buy = 0)
+                """,
+                (name, description, code, now, indicator_id, user_id),
+            )
+            version_no = _insert_indicator_version(cur, indicator_id, user_id, name, description, code)
+            db.commit()
+            cur.close()
+        return jsonify({
+            "code": 1,
+            "msg": "success",
+            "data": {
+                "indicator_id": indicator_id,
+                "version_no": version_no,
+                "name": name,
+                "description": description,
+                "code": code,
+            },
+        })
+    except Exception as e:
+        logger.error(f"restore_indicator_version failed: {str(e)}", exc_info=True)
         return jsonify({"code": 0, "msg": str(e), "data": None}), 500
 
 

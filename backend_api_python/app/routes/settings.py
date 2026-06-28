@@ -689,7 +689,7 @@ CONFIG_SCHEMA = {
             },
             {
                 'key': 'ALLOW_LOCAL_DESKTOP_BROKERS',
-                'label': 'Allow IBKR / MT5 (local desktop brokers)',
+                'label': 'Allow IBKR (local desktop broker)',
                 'type': 'boolean',
                 'default': 'True',
                 'description': 'Disable on a multi-tenant SaaS deployment so users see a clear "broker not supported" message instead of broken connect flows. Crypto exchange API keys are unaffected.'
@@ -711,10 +711,10 @@ CONFIG_SCHEMA = {
         ]
     },
 
-    'data_source': {
-        'title': 'Data Sources',
-        'icon': 'database',
-        'order': 4,
+    'market_modules': {
+        'title': 'Market Modules',
+        'icon': 'appstore',
+        'order': 3.5,
         'items': [
             {
                 'key': 'ENABLED_MARKETS',
@@ -724,6 +724,14 @@ CONFIG_SCHEMA = {
                 'options': market_options(),
                 'description': 'Markets exposed to research, strategy, market data, Agent API, and live-trading entry points. Saved as ENABLED_MARKETS in .env for backward compatibility. Empty = whitelist disabled and legacy SHOW_* flags apply.'
             },
+        ]
+    },
+
+    'data_source': {
+        'title': 'Data Sources',
+        'icon': 'database',
+        'order': 4,
+        'items': [
             {
                 'key': 'CCXT_DEFAULT_EXCHANGE',
                 'label': 'Default Crypto Exchange',

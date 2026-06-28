@@ -141,6 +141,11 @@ def _market_executor_workers() -> int:
         return 6
 
 executor = ThreadPoolExecutor(max_workers=_market_executor_workers())
+_market_cache = CacheManager()
+
+QUOTE_CACHE_TTL_SEC = int(os.getenv("WATCHLIST_QUOTE_CACHE_TTL_SEC", "20"))
+QUOTE_STALE_TTL_SEC = int(os.getenv("WATCHLIST_QUOTE_STALE_TTL_SEC", "600"))
+SYMBOL_SEARCH_CACHE_TTL_SEC = int(os.getenv("SYMBOL_SEARCH_CACHE_TTL_SEC", "21600"))
 
 def _now_ts() -> int:
     return int(time.time())
@@ -286,10 +291,25 @@ def search_symbols():
             return jsonify({'code': 1, 'msg': 'success', 'data': []})
 
         out = seed_search_symbols(market=market, keyword=keyword, limit=limit)
+        out = _dedupe_symbol_results(out, limit)
 
-        if market == 'Crypto' and len(out) < 3:
+        if out:
+            return jsonify({'code': 1, 'msg': 'success', 'data': out})
+
+        if market == 'Crypto':
             extra = _search_crypto_exchange(keyword, limit - len(out), {r['symbol'] for r in out})
             out.extend(extra)
+            out = _dedupe_symbol_results(out, limit)
+
+        if market in {'USStock', 'CNStock', 'HKStock'} and not out:
+            extra = _search_external_symbols(
+                market,
+                keyword,
+                limit - len(out),
+                {r['symbol'] for r in out},
+            )
+            out.extend(extra)
+            out = _dedupe_symbol_results(out, limit)
 
         return jsonify({'code': 1, 'msg': 'success', 'data': out})
     except Exception as e:
@@ -350,6 +370,141 @@ def _search_crypto_exchange(keyword: str, limit: int, existing: set) -> list:
     except Exception as e:
         logger.debug("_search_crypto_exchange failed: %s", e)
         return []
+
+
+def _dedupe_symbol_results(items: list, limit: int) -> list:
+    out = []
+    seen = set()
+    for item in items or []:
+        market = (item.get("market") or "").strip()
+        symbol = (item.get("symbol") or "").strip().upper()
+        name = (item.get("name") or "").strip()
+        if not market or not symbol:
+            continue
+        key = (market, symbol)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append({"market": market, "symbol": symbol, "name": name})
+        if len(out) >= limit:
+            break
+    return out
+
+
+def _df_records(df) -> list:
+    if df is None:
+        return []
+    try:
+        return df.to_dict("records")
+    except Exception:
+        return []
+
+
+def _search_cn_akshare(keyword: str, limit: int) -> list:
+    if limit <= 0:
+        return []
+    try:
+        import akshare as ak  # type: ignore
+        rows = _df_records(ak.stock_info_a_code_name())
+        kw = keyword.strip().upper()
+        out = []
+        for row in rows:
+            symbol = str(row.get("code") or row.get("代码") or "").strip().upper()
+            name = str(row.get("name") or row.get("名称") or "").strip()
+            if not symbol or not name:
+                continue
+            if kw in symbol or kw in name.upper():
+                out.append({"market": "CNStock", "symbol": symbol, "name": name})
+                persist_seed_name("CNStock", symbol, name)
+                if len(out) >= limit:
+                    break
+        return out
+    except Exception as e:
+        logger.debug("CN AkShare symbol search failed: %s", e)
+        return []
+
+
+def _search_hk_akshare(keyword: str, limit: int) -> list:
+    if limit <= 0:
+        return []
+    try:
+        import akshare as ak  # type: ignore
+        rows = _df_records(ak.stock_hk_spot_em())
+        kw = keyword.strip().upper()
+        out = []
+        for row in rows:
+            raw_symbol = str(row.get("代码") or row.get("code") or row.get("symbol") or "").strip().upper()
+            name = str(row.get("名称") or row.get("name") or "").strip()
+            if not raw_symbol or not name:
+                continue
+            symbol = re.sub(r"[^0-9]", "", raw_symbol).zfill(5)
+            if kw in raw_symbol or kw in symbol or kw in name.upper():
+                out.append({"market": "HKStock", "symbol": symbol, "name": name})
+                persist_seed_name("HKStock", symbol, name)
+                if len(out) >= limit:
+                    break
+        return out
+    except Exception as e:
+        logger.debug("HK AkShare symbol search failed: %s", e)
+        return []
+
+
+def _search_us_yahoo(keyword: str, limit: int) -> list:
+    if limit <= 0:
+        return []
+    try:
+        import requests
+        resp = requests.get(
+            "https://query2.finance.yahoo.com/v1/finance/search",
+            params={"q": keyword, "quotesCount": limit, "newsCount": 0},
+            timeout=6,
+            headers={"User-Agent": "Mozilla/5.0"},
+        )
+        if resp.status_code != 200:
+            return []
+        payload = resp.json() or {}
+        out = []
+        for q in payload.get("quotes") or []:
+            quote_type = str(q.get("quoteType") or "").upper()
+            if quote_type not in {"EQUITY", "ETF"}:
+                continue
+            symbol = str(q.get("symbol") or "").strip().upper()
+            name = str(q.get("shortname") or q.get("longname") or q.get("name") or "").strip()
+            exchange = str(q.get("exchange") or "").upper()
+            if not symbol or not name:
+                continue
+            if exchange in {"HKG", "SHH", "SHZ"} or symbol.endswith((".HK", ".SS", ".SZ")):
+                continue
+            out.append({"market": "USStock", "symbol": symbol, "name": name})
+            persist_seed_name("USStock", symbol, name)
+            if len(out) >= limit:
+                break
+        return out
+    except Exception as e:
+        logger.debug("Yahoo symbol search failed: %s", e)
+        return []
+
+
+def _search_external_symbols(market: str, keyword: str, limit: int, existing: set) -> list:
+    cache_key = f"symbol_search:{market}:{keyword.strip().upper()}:{limit}"
+    cached = _market_cache.get(cache_key)
+    if isinstance(cached, list):
+        return [r for r in cached if r.get("symbol") not in existing][:limit]
+
+    if market == "CNStock":
+        rows = _search_cn_akshare(keyword, limit)
+    elif market == "HKStock":
+        rows = _search_hk_akshare(keyword, limit)
+    elif market == "USStock":
+        rows = _search_us_yahoo(keyword, limit)
+    else:
+        rows = []
+
+    rows = _dedupe_symbol_results(rows, limit)
+    if rows:
+        _market_cache.set(cache_key, rows, SYMBOL_SEARCH_CACHE_TTL_SEC)
+    return [r for r in rows if r.get("symbol") not in existing][:limit]
+
 
 @market_blp.route('/symbols/hot', methods=['GET'])
 def get_hot_symbols():
@@ -578,27 +733,70 @@ def remove_watchlist():
         return jsonify({'code': 0, 'msg': str(e), 'data': None}), 500
 
 
+def _quote_cache_key(market: str, symbol: str, *, stale: bool = False) -> str:
+    prefix = "watchlist_quote_stale" if stale else "watchlist_quote"
+    return f"{prefix}:{market}:{symbol}".upper()
+
+
+def _empty_price(market: str, symbol: str, *, error: str = "") -> dict:
+    out = {
+        'market': market,
+        'symbol': symbol,
+        'price': 0,
+        'change': 0,
+        'changePercent': 0,
+    }
+    if error:
+        out['error'] = error
+    return out
+
+
+def _normalize_price_payload(
+    market: str,
+    symbol: str,
+    price_data: dict,
+    *,
+    cached: bool = False,
+    stale: bool = False,
+) -> dict:
+    out = {
+        'market': market,
+        'symbol': symbol,
+        'price': price_data.get('price', 0),
+        'change': price_data.get('change', 0),
+        'changePercent': price_data.get('changePercent', 0),
+    }
+    if cached:
+        out['cached'] = True
+    if stale:
+        out['stale'] = True
+    if price_data.get('source'):
+        out['source'] = price_data.get('source')
+    return out
+
+
 def get_single_price(market: str, symbol: str) -> dict:
-    """获取单个标的的价格数据"""
+    """Get one quote snapshot with fresh and stale cache fallback."""
+    fresh_key = _quote_cache_key(market, symbol)
+    stale_key = _quote_cache_key(market, symbol, stale=True)
+    cached = _market_cache.get(fresh_key)
+    if isinstance(cached, dict) and float(cached.get('price') or 0) > 0:
+        return _normalize_price_payload(market, symbol, cached, cached=True)
+
     try:
         price_data = kline_service.get_realtime_price(market, symbol)
-        
-        return {
-            'market': market,
-            'symbol': symbol,
-            'price': price_data.get('price', 0),
-            'change': price_data.get('change', 0),
-            'changePercent': price_data.get('changePercent', 0)
-        }
+        if price_data and float(price_data.get('price') or 0) > 0:
+            _market_cache.set(fresh_key, price_data, QUOTE_CACHE_TTL_SEC)
+            _market_cache.set(stale_key, price_data, QUOTE_STALE_TTL_SEC)
+            return _normalize_price_payload(market, symbol, price_data)
     except Exception as e:
         logger.error(f"Failed to fetch price {market}:{symbol} - {str(e)}")
-        return {
-            'market': market,
-            'symbol': symbol,
-            'price': 0,
-            'change': 0,
-            'changePercent': 0
-        }
+
+    stale = _market_cache.get(stale_key)
+    if isinstance(stale, dict) and float(stale.get('price') or 0) > 0:
+        return _normalize_price_payload(market, symbol, stale, cached=True, stale=True)
+
+    return _empty_price(market, symbol, error='unavailable')
 
 
 @market_blp.route('/watchlist/prices', methods=['GET'])
@@ -666,25 +864,20 @@ def get_watchlist_prices():
                 except Exception as e:
                     market, symbol = futures[future]
                     logger.warning(f"Price fetch failed: {market}:{symbol} - {str(e)}")
-                    results.append({
-                        'market': market,
-                        'symbol': symbol,
-                        'price': 0,
-                        'change': 0,
-                        'changePercent': 0
-                    })
-        except TimeoutError:
+                    stale = _market_cache.get(_quote_cache_key(market, symbol, stale=True))
+                    if isinstance(stale, dict) and float(stale.get('price') or 0) > 0:
+                        results.append(_normalize_price_payload(market, symbol, stale, cached=True, stale=True))
+                    else:
+                        results.append(_empty_price(market, symbol, error='failed'))
+        except FuturesTimeoutError:
             for future, (market, symbol) in futures.items():
                 if future not in completed_futures:
                     logger.warning(f"Price fetch timed out: {market}:{symbol}")
-                    results.append({
-                        'market': market,
-                        'symbol': symbol,
-                        'price': 0,
-                        'change': 0,
-                        'changePercent': 0,
-                        'error': 'timeout'
-                    })
+                    stale = _market_cache.get(_quote_cache_key(market, symbol, stale=True))
+                    if isinstance(stale, dict) and float(stale.get('price') or 0) > 0:
+                        results.append(_normalize_price_payload(market, symbol, stale, cached=True, stale=True))
+                    else:
+                        results.append(_empty_price(market, symbol, error='timeout'))
         
         success_count = sum(1 for r in results if r.get('price', 0) > 0)
         logger.info(f"Watchlist prices: {success_count}/{len(results)} successful")

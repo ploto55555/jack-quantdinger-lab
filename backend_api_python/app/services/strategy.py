@@ -1,4 +1,4 @@
-import os
+﻿import os
 import time
 import json
 import threading
@@ -145,7 +145,10 @@ def _apply_risk_flat_from_indicator_code(
     if not flat:
         return dict(trading_config or {})
     tc = dict(trading_config or {})
+    explicit_trade_direction = tc.get("trade_direction")
     tc.update(flat)
+    if explicit_trade_direction:
+        tc["trade_direction"] = explicit_trade_direction
     return tc
 
 
@@ -219,56 +222,22 @@ class StrategyService:
 
             ex = str(exchange_id or "").strip().lower()
 
-            # IBKR / MT5 are not CCXT exchanges; do not fall through to crypto symbol list.
-            if ex in ("ibkr", "mt5"):
+            # IBKR is not a CCXT exchange; do not fall through to crypto symbol list.
+            if ex == "ibkr":
                 from app.utils.local_brokers import desktop_broker_cloud_reject_message, local_desktop_brokers_allowed
 
                 if not local_desktop_brokers_allowed():
                     return {"success": False, "message": desktop_broker_cloud_reject_message(), "symbols": []}
 
-                if ex == "ibkr":
-                    # US tickers for convenience; full universe is broker-side.
-                    common = [
-                        "AAPL", "MSFT", "GOOGL", "AMZN", "META", "NVDA", "TSLA", "AMD", "NFLX", "INTC",
-                        "SPY", "QQQ", "IWM", "DIA", "VOO", "BABA", "JD", "PDD", "COIN", "MSTR",
-                    ]
-                    return {
-                        "success": True,
-                        "message": "IBKR: 以下为常用美股代码示例，也可手动输入其他在 TWS 中可交易的代码。",
-                        "symbols": common,
-                    }
-
-                if ex == "mt5":
-                    try:
-                        from app.services.live_trading.factory import create_mt5_client
-
-                        mt5_client = create_mt5_client(resolved)
-                        if mt5_client and mt5_client.connected:
-                            infos = mt5_client.get_symbols(group="*") or []
-                            names: List[str] = []
-                            for info in infos:
-                                if isinstance(info, dict):
-                                    n = str(info.get("name") or "").strip()
-                                    if n:
-                                        names.append(n)
-                            names = sorted(set(names))[:2000]
-                            return {
-                                "success": True,
-                                "message": f"MT5: {len(names)} symbols from terminal",
-                                "symbols": names,
-                            }
-                        return {
-                            "success": False,
-                            "message": "MT5 未连接：请确认本机已启动 MT5 终端且账号配置正确。",
-                            "symbols": [],
-                        }
-                    except Exception as e:
-                        logger.error(f"MT5 get_symbols failed: {e}")
-                        return {
-                            "success": False,
-                            "message": f"MT5 品种列表失败: {e}",
-                            "symbols": [],
-                        }
+                common = [
+                    "AAPL", "MSFT", "GOOGL", "AMZN", "META", "NVDA", "TSLA", "AMD", "NFLX", "INTC",
+                    "SPY", "QQQ", "IWM", "DIA", "VOO", "BABA", "JD", "PDD", "COIN", "MSTR",
+                ]
+                return {
+                    "success": True,
+                    "message": "IBKR common US stock symbols. You may also enter another tradable TWS symbol manually.",
+                    "symbols": common,
+                }
 
             # For these exchanges, prefer direct REST (no ccxt), aligned with local live-trading design.
             if ex in ("bybit", "coinbaseexchange", "coinbase_exchange", "kraken", "gate"):
@@ -433,7 +402,7 @@ class StrategyService:
                 if not exchange_id:
                     return {'success': False, 'message': 'Missing exchange_id', 'data': None}
 
-                if exchange_id in ("ibkr", "mt5"):
+                if exchange_id == "ibkr":
                     from app.utils.local_brokers import desktop_broker_cloud_reject_message, local_desktop_brokers_allowed
 
                     if not local_desktop_brokers_allowed():
@@ -442,50 +411,6 @@ class StrategyService:
                             "message": desktop_broker_cloud_reject_message(),
                             "data": {"exchange": safe_cfg},
                         }
-
-                # Handle MT5 (Forex) connection test
-                if exchange_id == 'mt5':
-                    # Validate that MT5 is only used for Forex market
-                    market_category = str(resolved.get("market_category") or exchange_config.get("market_category") or "").strip()
-                    if market_category and market_category != "Forex":
-                        return {
-                            'success': False,
-                            'message': f'MT5 can only be used for Forex trading, but market_category is {market_category}. Please use MT5 only with Forex market.',
-                            'data': {'exchange': safe_cfg}
-                        }
-                    
-                    try:
-                        from app.services.live_trading.factory import create_mt5_client
-                        mt5_client = create_mt5_client(resolved)
-                        if mt5_client and mt5_client.connected:
-                            # Get account info if available
-                            account_info = None
-                            try:
-                                account_info = mt5_client.get_account_info()
-                            except Exception:
-                                pass
-                            return {
-                                'success': True,
-                                'message': 'MT5 connection successful',
-                                'data': {
-                                    'exchange': safe_cfg,
-                                    'account': account_info
-                                }
-                            }
-                        else:
-                            return {
-                                'success': False,
-                                'message': 'Failed to connect to MT5. Please check credentials and ensure terminal is running.',
-                                'data': {'exchange': safe_cfg}
-                            }
-                    except Exception as e:
-                        error_msg = str(e)
-                        return {
-                            'success': False,
-                            'message': f'MT5 connection failed: {error_msg}',
-                            'data': {'exchange': safe_cfg}
-                        }
-
                 # Handle IBKR (US Stocks) connection test
                 if exchange_id == 'ibkr':
                     market_category_ib = str(
@@ -690,17 +615,16 @@ class StrategyService:
                                 )
                             msg = f"{msg} | {hint}"
                             hint_cn = (
-                                "币安接口返回 -2015（密钥/IP/权限不匹配）。请逐项核对："
-                                "① API Key 是否勾选与当前测试一致的业务（现货选现货权限，合约选合约/U 本位权限）；"
-                                "② 若启用 IP 白名单，是否包含当前服务器出口 IP（见下方 egress_ip）；"
-                                "③ base_url 与密钥环境一致（主网密钥配 api.binance.com / fapi.binance.com，"
-                                "模拟盘需在 testnet.binance.vision / testnet.binancefuture.com 单独申请的 Testnet Key，主网 Key 在测试网无效）；"
-                                "④ 无多余空格、复制完整 Secret。"
+                                "Binance returned -2015, usually caused by an API key, IP whitelist, "
+                                "permission, or environment mismatch. Check that the API key has the "
+                                "right product permissions for the selected market type, that the current "
+                                "egress_ip is allowed when IP whitelisting is enabled, that base_url matches "
+                                "mainnet or testnet keys, and that the secret was copied completely."
                             )
                             if alt_ok:
                                 hint_cn += (
-                                    f" 自动探测：同一密钥在 market_type={alt_market_type} 可通过，"
-                                    f"当前选择的 {market_type} 与密钥权限不一致的可能性很大。"
+                                    f" Auto-check passed for market_type={alt_market_type}, so the selected "
+                                    f"market_type={market_type} is likely inconsistent with the key permissions."
                                 )
                         else:
                             hint_cn = ""
@@ -984,7 +908,7 @@ class StrategyService:
         return json.dumps(obj, ensure_ascii=False)
 
     def _compute_runtime_metrics(self, strategy_ids: List[int]) -> Dict[int, Dict[str, float]]:
-        """批量计算策略的已实现盈亏 / 未实现盈亏 / 当前权益。"""
+        """Batch compute realized PnL, unrealized PnL, and current equity."""
         result: Dict[int, Dict[str, float]] = {}
         if not strategy_ids:
             return result
@@ -1151,7 +1075,7 @@ class StrategyService:
 
         # Validate broker / market / market_type / direction / bot_type as a
         # single unit through the centralized policy (broker_market_policy.py).
-        # That module is the single source of truth — adding a new broker or
+        # That module is the single source of truth 鈥?adding a new broker or
         # tightening a rule should only need a change in one place.
         from app.services.broker_market_policy import validate_strategy_config
         exchange_id = (resolved_ex_cfg.get('exchange_id') or '').strip().lower() if isinstance(resolved_ex_cfg, dict) else ''
@@ -1171,7 +1095,7 @@ class StrategyService:
             )
 
         # When credential_id is present, strip raw API keys to avoid
-        # storing secrets in the strategy record — they live in qd_exchange_credentials.
+        # storing secrets in the strategy record 鈥?they live in qd_exchange_credentials.
         if isinstance(exchange_config, dict) and exchange_config.get('credential_id'):
             for _secret_key in ('api_key', 'secret_key', 'passphrase', 'apiKey', 'secret', 'password'):
                 exchange_config.pop(_secret_key, None)
@@ -1188,7 +1112,7 @@ class StrategyService:
         # underlying pair. Equity / FX / futures markets pass through
         # unchanged. Write the normalised value back into trading_config so
         # the JSON copy stored alongside the denormalised column also reflects
-        # the canonical form — the live trading worker and execution layer
+        # the canonical form 鈥?the live trading worker and execution layer
         # both read symbol from trading_config['symbol'].
         if market_category == 'Crypto' and isinstance(symbol, str) and symbol:
             symbol = normalize_crypto_symbol(symbol)
@@ -1533,7 +1457,7 @@ class StrategyService:
         trading_config = self._sanitize_grid_trading_config(trading_config)
 
         # When credential_id is present, strip raw API keys to avoid
-        # storing secrets in the strategy record — they live in qd_exchange_credentials.
+        # storing secrets in the strategy record 鈥?they live in qd_exchange_credentials.
         if isinstance(exchange_config, dict) and exchange_config.get('credential_id'):
             for _secret_key in ('api_key', 'secret_key', 'passphrase', 'apiKey', 'secret', 'password'):
                 exchange_config.pop(_secret_key, None)

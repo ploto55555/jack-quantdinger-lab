@@ -1772,8 +1772,8 @@ class TradingExecutor:
             m = (msg or "").lower()
             if not m:
                 return False
-            # IBKR/MT5 disabled in SaaS/cloud installs.
-            if "disabled ibkr/mt5" in m or "已关闭 ibkr / mt5" in msg:
+            # IBKR disabled in SaaS/cloud installs.
+            if "disabled ibkr" in m:
                 return True
             # Broker gateway not reachable (Docker 127.0.0.1, TWS down, etc.)
             if any(
