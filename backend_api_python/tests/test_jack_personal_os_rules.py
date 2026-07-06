@@ -1,3 +1,4 @@
+from app.services.jack_personal_os_registry import JACK_PERSONAL_OS_TOOLS
 from app.services.jack_personal_os_rules import (
     JackMode,
     SetupGrade,
@@ -17,6 +18,18 @@ def test_grade_setup_boundaries():
     assert grade_setup(18).grade == SetupGrade.A_PLUS
     assert grade_setup(19).grade == SetupGrade.S
     assert grade_setup(20).grade == SetupGrade.S
+
+
+def test_grade_setup_clamps_values():
+    assert grade_setup(-100).score == 0
+    assert grade_setup(999).score == 20
+
+
+def test_risk_decision_rejects_invalid_equity():
+    decision = decide_risk_percent(equity=0, drawdown_percent=0, setup_score=20)
+    assert decision.allowed is False
+    assert decision.mode == JackMode.PAUSE
+    assert decision.risk_percent == 0.0
 
 
 def test_risk_decision_pauses_on_large_drawdown():
@@ -44,3 +57,9 @@ def test_risk_decision_attack_for_high_quality_low_drawdown():
     assert decision.allowed is True
     assert decision.mode == JackMode.ATTACK
     assert decision.risk_percent == 2.0
+
+
+def test_registry_ids_are_unique_and_disabled_by_default():
+    ids = [tool.id for tool in JACK_PERSONAL_OS_TOOLS]
+    assert len(ids) == len(set(ids))
+    assert all(tool.enabled is False for tool in JACK_PERSONAL_OS_TOOLS)
