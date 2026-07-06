@@ -1,8 +1,0 @@
-# Notes
-
-Initial project notes.
-
-- keep original app stable
-- review backend structure
-- review documentation
-- avoid runtime behavior changes in first step
