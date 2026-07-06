@@ -1,0 +1,17 @@
+name: Jack OS Tests
+
+on: workflow_dispatch
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend_api_python
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install --upgrade pip pytest
+      - run: PYTHONPATH=. python -m pytest tests/test_jack_personal_os_rules.py -q
