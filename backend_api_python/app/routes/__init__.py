@@ -11,3 +11,6 @@ def register_routes(app: Flask):
 
     from app.routes.agent_v1 import register as register_agent_v1
     register_agent_v1(app)
+
+    from app.routes.jack_os_api import jack_os_api
+    app.register_blueprint(jack_os_api)
