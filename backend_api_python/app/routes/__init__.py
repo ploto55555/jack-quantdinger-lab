@@ -23,3 +23,6 @@ def register_routes(app: Flask):
 
     from app.routes.jack_forex_data_api import jack_forex_data_api
     app.register_blueprint(jack_forex_data_api)
+
+    from app.routes.jack_forex_import_page import jack_forex_import_page
+    app.register_blueprint(jack_forex_import_page)
