@@ -9,6 +9,7 @@ from app.services.jack_candle_storage import (
     save_provider_result,
     storage_status,
 )
+from app.services.jack_csv_loader import load_csv_to_storage
 from app.services.jack_data_center_sample import (
     data_quality_report,
     get_import_plan,
@@ -48,7 +49,7 @@ def health():
             "status": "ready",
             "auth_required": False,
             "external_api_required": False,
-            "stage": "provider_and_local_storage_skeleton",
+            "stage": "provider_local_storage_csv_import",
         },
     })
 
@@ -173,6 +174,15 @@ def fetch_and_store():
             },
             "storage_result": save_provider_result(provider_result),
         },
+    })
+
+
+@jack_data_api.post("/import-csv-file")
+def import_csv_file():
+    return jsonify({
+        "code": 1,
+        "msg": "ok",
+        "data": load_csv_to_storage(_json_payload()),
     })
 
 
