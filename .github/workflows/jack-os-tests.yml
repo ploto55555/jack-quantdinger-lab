@@ -14,4 +14,4 @@ jobs:
         with:
           python-version: '3.11'
       - run: python -m pip install --upgrade pip pytest
-      - run: PYTHONPATH=. python -m pytest tests/test_jack_personal_os_rules.py -q
+      - run: PYTHONPATH=. python -m pytest tests/test_jack_personal_os_rules.py tests/test_jack_os_api.py -q
