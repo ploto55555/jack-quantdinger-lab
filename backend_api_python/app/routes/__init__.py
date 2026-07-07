@@ -14,3 +14,6 @@ def register_routes(app: Flask):
 
     from app.routes.jack_os_api import jack_os_api
     app.register_blueprint(jack_os_api)
+
+    from app.routes.jack_backtest_api import jack_backtest_api
+    app.register_blueprint(jack_backtest_api)
