@@ -1,11 +1,15 @@
 from flask import Flask
 
 from app.routes.jack_backtest_api import jack_backtest_api
+from app.routes.jack_forex_data_api import jack_forex_data_api
+from app.services.jack_forex_data_sample import csv_template
 
 
-def _app():
+def _app(include_forex_data: bool = False):
     app = Flask(__name__)
     app.register_blueprint(jack_backtest_api)
+    if include_forex_data:
+        app.register_blueprint(jack_forex_data_api)
     return app
 
 
@@ -89,3 +93,29 @@ def test_run_candles_sample_post_accepts_payload():
     assert data["summary"]["timeframe"] == "H1"
     assert data["summary"]["initial_capital"] == 500
     assert len(data["equity_curve"]) == 5
+
+
+def test_run_forex_stored_requires_import_first():
+    client = _app().test_client()
+
+    response = client.get("/api/jack-backtest/run-forex-stored?symbol=EURUSD&timeframe=H4&initial_capital=10000")
+
+    assert response.status_code == 200
+    data = response.get_json()["data"]
+    assert data["summary"]["status"] in {"missing_or_insufficient_stored_candles", "computed_from_stored_forex_candles"}
+
+
+def test_run_forex_stored_after_csv_import():
+    client = _app(include_forex_data=True).test_client()
+    client.post("/api/jack-forex-data/import-csv", json={"csv_text": csv_template()})
+
+    response = client.get("/api/jack-backtest/run-forex-stored?symbol=GBPJPY&timeframe=H4&initial_capital=10000")
+
+    assert response.status_code == 200
+    data = response.get_json()["data"]
+    assert data["summary"]["strategy_name"] == "Stored Forex Buy & Hold Test"
+    assert data["summary"]["status"] == "computed_from_stored_forex_candles"
+    assert data["summary"]["number_of_candles"] == 5
+    assert data["summary"]["number_of_trades"] == 1
+    assert data["equity_curve"]
+    assert data["trades"][0]["side"] == "long"
