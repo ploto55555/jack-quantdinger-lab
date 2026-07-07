@@ -1,6 +1,7 @@
 """Small rule helpers for Jack Personal OS.
 
-This module is a safe standalone draft. It is not imported by the running app yet.
+This module is intentionally conservative and side-effect free.
+It does not connect to any broker, database, or order flow.
 """
 from __future__ import annotations
 
