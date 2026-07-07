@@ -11,6 +11,7 @@ from datetime import date, timedelta
 from typing import Any
 
 from app.services.jack_data_center_sample import sample_candles
+from app.services.jack_forex_csv_store import load_stored_candles
 
 
 @dataclass(frozen=True)
@@ -131,6 +132,62 @@ def build_candle_buy_hold_backtest(payload: dict[str, Any] | None = None) -> dic
     initial_capital = max(_to_float(payload.get("initial_capital"), 10000.0), 1.0)
 
     candles = sample_candles(symbol=symbol, timeframe=timeframe, limit=limit)
+    return _build_buy_hold_result(
+        candles=candles,
+        symbol=symbol,
+        timeframe=timeframe,
+        initial_capital=initial_capital,
+        status="computed_from_sample_candles",
+        note_prefix="Computed from Jack Data Center sample candles.",
+    )
+
+
+def build_stored_forex_buy_hold_backtest(payload: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Run buy-and-hold from locally imported Forex CSV candles."""
+    payload = payload or {}
+    symbol = _to_str(payload.get("symbol"), "GBPJPY").upper()
+    timeframe = _to_str(payload.get("timeframe"), "H4").upper()
+    limit_value = _to_int(payload.get("limit"), 0)
+    limit = limit_value if limit_value > 0 else None
+    initial_capital = max(_to_float(payload.get("initial_capital"), 10000.0), 1.0)
+
+    candles = load_stored_candles(symbol=symbol, timeframe=timeframe, limit=limit)
+    if len(candles) < 2:
+        return {
+            "summary": {
+                "strategy_name": "Stored Forex Buy & Hold Test",
+                "symbol": symbol,
+                "timeframe": timeframe,
+                "initial_capital": initial_capital,
+                "status": "missing_or_insufficient_stored_candles",
+                "number_of_candles": len(candles),
+            },
+            "equity_curve": [],
+            "trades": [],
+            "notes": [
+                "Import CSV first via /api/jack-forex-data/import-csv.",
+                "Need at least 2 stored candles for this chain test.",
+            ],
+        }
+
+    return _build_buy_hold_result(
+        candles=candles,
+        symbol=symbol,
+        timeframe=timeframe,
+        initial_capital=initial_capital,
+        status="computed_from_stored_forex_candles",
+        note_prefix="Computed from locally imported Forex CSV candles.",
+    )
+
+
+def _build_buy_hold_result(
+    candles: list[dict[str, Any]],
+    symbol: str,
+    timeframe: str,
+    initial_capital: float,
+    status: str,
+    note_prefix: str,
+) -> dict[str, Any]:
     start_close = float(candles[0]["close"])
     end_close = float(candles[-1]["close"])
     total_return_percent = ((end_close / start_close) - 1.0) * 100.0
@@ -139,7 +196,7 @@ def build_candle_buy_hold_backtest(payload: dict[str, Any] | None = None) -> dic
     max_drawdown_percent = _max_drawdown_percent([point["equity"] for point in equity_curve])
 
     summary = {
-        "strategy_name": "Buy & Hold Candle Chain Test",
+        "strategy_name": "Buy & Hold Candle Chain Test" if status == "computed_from_sample_candles" else "Stored Forex Buy & Hold Test",
         "symbol": symbol,
         "timeframe": timeframe,
         "start_date": candles[0]["timestamp"],
@@ -152,7 +209,7 @@ def build_candle_buy_hold_backtest(payload: dict[str, Any] | None = None) -> dic
         "max_drawdown_percent": round(max_drawdown_percent, 4),
         "number_of_candles": len(candles),
         "number_of_trades": 1,
-        "status": "computed_from_sample_candles",
+        "status": status,
     }
 
     trade = {
@@ -164,7 +221,7 @@ def build_candle_buy_hold_backtest(payload: dict[str, Any] | None = None) -> dic
         "exit_date": candles[-1]["timestamp"],
         "exit_price": end_close,
         "return_percent": round(total_return_percent, 4),
-        "reason": "buy first sample candle close, sell last sample candle close",
+        "reason": "buy first candle close, sell last candle close",
     }
 
     return {
@@ -173,11 +230,11 @@ def build_candle_buy_hold_backtest(payload: dict[str, Any] | None = None) -> dic
         "trades": [trade],
         "candles_used_preview": candles[:5],
         "notes": [
-            "Computed from Jack Data Center sample candles.",
+            note_prefix,
             "No AI token used.",
-            "No external market data API used.",
+            "No external market data API used during backtest.",
             "No broker connection used.",
-            "Next step: replace sample candles with imported 10+ year historical candles.",
+            "Next step: replace buy-and-hold with a real Forex strategy engine.",
         ],
     }
 
