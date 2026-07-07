@@ -8,6 +8,7 @@ from app.services.jack_backtest_sample import (
     build_sample_backtest,
     build_stored_forex_buy_hold_backtest,
 )
+from app.services.jack_rule_research_engine import run_rule_research_v1
 
 
 jack_backtest_api = Blueprint("jack_backtest_api", __name__, url_prefix="/api/jack-backtest")
@@ -28,7 +29,7 @@ def health():
             "status": "ready",
             "auth_required": False,
             "ai_token_required": False,
-            "stage": "csv_import_chain_skeleton",
+            "stage": "rule_research_v1",
         },
     })
 
@@ -96,4 +97,34 @@ def run_forex_stored_post():
         "code": 1,
         "msg": "ok",
         "data": build_stored_forex_buy_hold_backtest(_json_payload()),
+    })
+
+
+@jack_backtest_api.get("/run-rule-v1")
+def run_rule_v1_get():
+    payload = {
+        "symbol": request.args.get("symbol", "GBPJPY"),
+        "timeframe": request.args.get("timeframe", "H4"),
+        "limit": request.args.get("limit", 20000),
+        "initial_capital": request.args.get("initial_capital", 10000),
+        "risk_percent": request.args.get("risk_percent", 1),
+        "ema_fast": request.args.get("ema_fast", 20),
+        "ema_slow": request.args.get("ema_slow", 50),
+        "breakout_lookback": request.args.get("breakout_lookback", 20),
+        "stop_lookback": request.args.get("stop_lookback", 10),
+        "target_r": request.args.get("target_r", 2),
+    }
+    return jsonify({
+        "code": 1,
+        "msg": "ok",
+        "data": run_rule_research_v1(payload),
+    })
+
+
+@jack_backtest_api.post("/run-rule-v1")
+def run_rule_v1_post():
+    return jsonify({
+        "code": 1,
+        "msg": "ok",
+        "data": run_rule_research_v1(_json_payload()),
     })
