@@ -2,13 +2,16 @@
 
 Phase 1 Data Center adapter.
 
-This file creates one stable interface for future market data providers.
-It does not require real API keys yet. Real providers can be connected later
-without changing the backtest engine contract.
+This file creates one stable interface for market data providers. Backtests
+should read local stored candles; provider calls are for import/update jobs.
 """
 from __future__ import annotations
 
+import json
 import os
+import urllib.error
+import urllib.parse
+import urllib.request
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -54,8 +57,8 @@ PROVIDERS = [
         asset_classes=["forex", "metal", "stock", "etf", "index"],
         requires_api_key=True,
         env_key_name="TWELVE_DATA_API_KEY",
-        status="adapter_stub",
-        note="Use for early Forex/Gold/Stock historical import after API key is configured.",
+        status="http_fetch_ready",
+        note="First real HTTP provider for Forex/Gold/Stock historical import.",
     ),
     ProviderSpec(
         provider="oanda",
@@ -88,6 +91,7 @@ PROVIDERS = [
 
 
 SUPPORTED_TIMEFRAMES = ["1D", "D1", "H4", "H1", "M15", "M5"]
+TWELVE_DATA_URL = "https://api.twelvedata.com/time_series"
 
 
 def list_providers() -> list[dict[str, Any]]:
@@ -147,13 +151,16 @@ def fetch_candles(payload: dict[str, Any] | None) -> dict[str, Any]:
             "message": f"Set {spec.env_key_name} in backend_api_python/.env before real import.",
         }
 
+    if provider == "twelve_data":
+        return _fetch_twelve_data(request_data)
+
     return {
         "provider": provider,
         "symbol": request_data["symbol"],
         "timeframe": request_data["timeframe"],
         "status": "adapter_stub",
         "candles": [],
-        "message": "Provider contract is ready. Real HTTP client/import logic will be implemented next.",
+        "message": "Provider contract is ready. Real HTTP client/import logic for this provider will be implemented later.",
         "request": request_data,
     }
 
@@ -175,7 +182,97 @@ def build_import_job_preview(payload: dict[str, Any] | None) -> dict[str, Any]:
         "storage_target": "local_candles_table",
         "backtest_rule": "After import, backtest reads local storage and should not call provider directly.",
         "ready_to_run_real_import": provider_ok and api_key_ok and request_data["provider"] != "sample",
+        "next_endpoint": "/api/jack-data/fetch-provider-candles",
     }
+
+
+def _fetch_twelve_data(request_data: dict[str, Any]) -> dict[str, Any]:
+    api_key = os.getenv("TWELVE_DATA_API_KEY")
+    if not api_key:
+        return {
+            "provider": "twelve_data",
+            "status": "missing_api_key",
+            "env_key_name": "TWELVE_DATA_API_KEY",
+            "candles": [],
+        }
+
+    params = {
+        "symbol": _to_twelve_data_symbol(request_data["symbol"]),
+        "interval": _to_twelve_data_interval(request_data["timeframe"]),
+        "start_date": request_data["start_date"],
+        "end_date": request_data["end_date"],
+        "outputsize": request_data["limit"],
+        "apikey": api_key,
+        "format": "JSON",
+    }
+    url = f"{TWELVE_DATA_URL}?{urllib.parse.urlencode(params)}"
+
+    try:
+        with urllib.request.urlopen(url, timeout=20) as response:
+            raw = response.read().decode("utf-8")
+    except urllib.error.HTTPError as exc:
+        return _provider_error("twelve_data", request_data, f"http_error_{exc.code}", exc.read().decode("utf-8", errors="ignore"))
+    except urllib.error.URLError as exc:
+        return _provider_error("twelve_data", request_data, "url_error", str(exc.reason))
+    except TimeoutError:
+        return _provider_error("twelve_data", request_data, "timeout", "Provider request timed out.")
+
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError:
+        return _provider_error("twelve_data", request_data, "bad_json", raw[:500])
+
+    if payload.get("status") == "error" or "values" not in payload:
+        return {
+            "provider": "twelve_data",
+            "symbol": request_data["symbol"],
+            "provider_symbol": params["symbol"],
+            "timeframe": request_data["timeframe"],
+            "provider_interval": params["interval"],
+            "status": "provider_error",
+            "candles": [],
+            "provider_response": {k: v for k, v in payload.items() if k != "values"},
+        }
+
+    candles = _normalise_twelve_data_values(request_data, payload.get("values", []))
+    return {
+        "provider": "twelve_data",
+        "symbol": request_data["symbol"],
+        "provider_symbol": params["symbol"],
+        "timeframe": request_data["timeframe"],
+        "provider_interval": params["interval"],
+        "start_date": request_data["start_date"],
+        "end_date": request_data["end_date"],
+        "candles_returned": len(candles),
+        "stored_local": False,
+        "status": "fetched_not_stored",
+        "candles": candles,
+        "next_step": "Persist these candles to local storage, then make backtest read stored candles only.",
+    }
+
+
+def _normalise_twelve_data_values(request_data: dict[str, Any], values: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    candles: list[ProviderCandle] = []
+    for item in reversed(values):
+        dt_value = item.get("datetime") or item.get("date")
+        if not dt_value:
+            continue
+        try:
+            candle = ProviderCandle(
+                symbol=request_data["symbol"],
+                timeframe=request_data["timeframe"],
+                timestamp=_normalise_timestamp(str(dt_value)),
+                open=float(item.get("open")),
+                high=float(item.get("high")),
+                low=float(item.get("low")),
+                close=float(item.get("close")),
+                volume=float(item.get("volume") or 0.0),
+                provider="twelve_data",
+            )
+        except (TypeError, ValueError):
+            continue
+        candles.append(asdict(candle))
+    return candles
 
 
 def _normalise_request(payload: dict[str, Any] | None) -> dict[str, Any]:
@@ -222,6 +319,47 @@ def _sample_provider_candles(request_data: dict[str, Any]) -> list[dict[str, Any
         )
 
     return [asdict(candle) for candle in candles]
+
+
+def _to_twelve_data_symbol(symbol: str) -> str:
+    symbol = symbol.upper().replace("/", "")
+    if len(symbol) == 6 and symbol.isalpha():
+        return f"{symbol[:3]}/{symbol[3:]}"
+    if symbol == "XAUUSD":
+        return "XAU/USD"
+    return symbol
+
+
+def _to_twelve_data_interval(timeframe: str) -> str:
+    mapping = {
+        "1D": "1day",
+        "D1": "1day",
+        "H4": "4h",
+        "H1": "1h",
+        "M15": "15min",
+        "M5": "5min",
+    }
+    return mapping.get(timeframe.upper(), "4h")
+
+
+def _normalise_timestamp(value: str) -> str:
+    text = value.strip().replace(" ", "T")
+    if "T" not in text:
+        text = f"{text}T00:00:00"
+    if text.endswith("Z"):
+        return text
+    return f"{text}Z"
+
+
+def _provider_error(provider: str, request_data: dict[str, Any], status: str, message: str) -> dict[str, Any]:
+    return {
+        "provider": provider,
+        "symbol": request_data["symbol"],
+        "timeframe": request_data["timeframe"],
+        "status": status,
+        "message": message[:1000],
+        "candles": [],
+    }
 
 
 def _get_provider(provider_name: str) -> ProviderSpec | None:
