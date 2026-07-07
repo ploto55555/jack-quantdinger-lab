@@ -9,6 +9,12 @@ from app.services.jack_data_center_sample import (
     list_symbols,
     sample_candles,
 )
+from app.services.jack_market_data_provider import (
+    build_import_job_preview,
+    fetch_candles,
+    list_providers,
+    provider_status,
+)
 
 
 jack_data_api = Blueprint("jack_data_api", __name__, url_prefix="/api/jack-data")
@@ -21,6 +27,11 @@ def _int_arg(name: str, default: int) -> int:
         return default
 
 
+def _json_payload() -> dict:
+    data = request.get_json(silent=True) or {}
+    return data if isinstance(data, dict) else {}
+
+
 @jack_data_api.get("/health")
 def health():
     return jsonify({
@@ -31,7 +42,7 @@ def health():
             "status": "ready",
             "auth_required": False,
             "external_api_required": False,
-            "stage": "sample_skeleton",
+            "stage": "provider_adapter_skeleton",
         },
     })
 
@@ -80,4 +91,43 @@ def quality_report():
         "code": 1,
         "msg": "ok",
         "data": data_quality_report(symbol=symbol, timeframe=timeframe),
+    })
+
+
+@jack_data_api.get("/providers")
+def providers():
+    return jsonify({
+        "code": 1,
+        "msg": "ok",
+        "data": {
+            "providers": list_providers(),
+        },
+    })
+
+
+@jack_data_api.get("/provider-status")
+def market_provider_status():
+    provider = request.args.get("provider")
+    return jsonify({
+        "code": 1,
+        "msg": "ok",
+        "data": provider_status(provider),
+    })
+
+
+@jack_data_api.post("/fetch-provider-candles")
+def fetch_provider_candles():
+    return jsonify({
+        "code": 1,
+        "msg": "ok",
+        "data": fetch_candles(_json_payload()),
+    })
+
+
+@jack_data_api.post("/import-api-preview")
+def import_api_preview():
+    return jsonify({
+        "code": 1,
+        "msg": "ok",
+        "data": build_import_job_preview(_json_payload()),
     })
