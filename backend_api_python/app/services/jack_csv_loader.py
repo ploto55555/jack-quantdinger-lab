@@ -11,7 +11,7 @@ from app.services.jack_candle_storage import save_candles
 def _find_project_root() -> Path:
     current = Path(__file__).resolve()
     for parent in current.parents:
-        if (parent / "data").exists() or (parent / "docker-compose.yml").exists():
+        if (parent / "app").exists():
             return parent
     return Path.cwd()
 
