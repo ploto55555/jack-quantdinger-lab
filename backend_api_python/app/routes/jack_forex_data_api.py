@@ -3,6 +3,12 @@ from __future__ import annotations
 
 from flask import Blueprint, Response, jsonify, request
 
+from app.services.jack_forex_csv_store import (
+    import_csv_text,
+    list_stored_datasets,
+    load_stored_candles,
+    stored_quality_report,
+)
 from app.services.jack_forex_data_sample import (
     csv_template,
     csv_template_json,
@@ -37,7 +43,7 @@ def health():
             "status": "ready",
             "auth_required": False,
             "external_api_required": False,
-            "stage": "csv_template_skeleton",
+            "stage": "csv_import_skeleton",
         },
     })
 
@@ -93,4 +99,53 @@ def validate_csv():
         "code": 1,
         "msg": "ok",
         "data": validate_csv_text(csv_text),
+    })
+
+
+@jack_forex_data_api.post("/import-csv")
+def import_csv():
+    payload = _json_payload()
+    csv_text = str(payload.get("csv_text", ""))
+    return jsonify({
+        "code": 1,
+        "msg": "ok",
+        "data": import_csv_text(csv_text),
+    })
+
+
+@jack_forex_data_api.get("/stored-datasets")
+def stored_datasets():
+    return jsonify({
+        "code": 1,
+        "msg": "ok",
+        "data": list_stored_datasets(),
+    })
+
+
+@jack_forex_data_api.get("/stored-candles")
+def stored_candles():
+    symbol = request.args.get("symbol", "GBPJPY")
+    timeframe = request.args.get("timeframe", "H4")
+    limit = _int_arg("limit", 0)
+    candles = load_stored_candles(symbol=symbol, timeframe=timeframe, limit=limit or None)
+    return jsonify({
+        "code": 1,
+        "msg": "ok",
+        "data": {
+            "symbol": symbol.upper(),
+            "timeframe": timeframe.upper(),
+            "rows": len(candles),
+            "candles": candles,
+        },
+    })
+
+
+@jack_forex_data_api.get("/stored-quality-report")
+def stored_quality():
+    symbol = request.args.get("symbol", "GBPJPY")
+    timeframe = request.args.get("timeframe", "H4")
+    return jsonify({
+        "code": 1,
+        "msg": "ok",
+        "data": stored_quality_report(symbol=symbol, timeframe=timeframe),
     })
