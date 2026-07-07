@@ -44,13 +44,13 @@ def _to_int(value, default: int = 0) -> int:
 
 
 @jack_os_api.get("/tools")
-@login_required
 def tools():
     return jsonify({
         "code": 1,
         "msg": "ok",
         "data": {
             "enabled": False,
+            "auth_required": False,
             "tools": [_tool_to_dict(t) for t in JACK_PERSONAL_OS_TOOLS],
         },
     })
