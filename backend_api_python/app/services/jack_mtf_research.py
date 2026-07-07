@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta
 from typing import Any
 
 from app.services.jack_candle_storage import load_candles
@@ -64,7 +65,7 @@ def run_mtf_research_v1(payload: dict[str, Any] | None = None) -> dict[str, Any]
                 pos = None
         if pos is None:
             h4_trend = h4_ef[i - 1] is not None and h4_es[i - 1] is not None and h4_ef[i - 1] > h4_es[i - 1]
-            d1_ok = _d1_allows_long(bar["timestamp"], d1_map)
+            d1_ok = _d1_allows_long_using_previous_day(bar["timestamp"], d1_map)
             recent_high = max(h4[j]["high"] for j in range(i - breakout, i))
             recent_low = min(h4[j]["low"] for j in range(i - stop_n, i))
             breakout_ok = bar["close"] > recent_high
@@ -85,7 +86,7 @@ def run_mtf_research_v1(payload: dict[str, Any] | None = None) -> dict[str, Any]
     pf = round(gw / gl, 3) if gl > 0 else None
     summary = {
         "engine": "MTF Research v1",
-        "rule": "D1 trend filter + H4 breakout research",
+        "rule": "Previous closed D1 trend filter + H4 breakout research",
         "symbol": symbol,
         "h4_rows": len(h4),
         "d1_rows": len(d1),
@@ -99,6 +100,7 @@ def run_mtf_research_v1(payload: dict[str, Any] | None = None) -> dict[str, Any]
         "win_rate_percent": round(len(wins) / len(trades) * 100, 2) if trades else 0.0,
         "profit_factor": pf,
         "skipped_by_d1_filter": skipped_by_d1,
+        "daily_filter_timing": "uses_previous_closed_d1_candle",
         "h4_ema_fast": h4_fast,
         "h4_ema_slow": h4_slow,
         "d1_ema_fast": d1_fast,
@@ -119,9 +121,16 @@ def _d1_trend_map(d1: list[dict[str, Any]], ef: list[float | None], es: list[flo
     return out
 
 
-def _d1_allows_long(timestamp: str, trend_map: dict[str, bool]) -> bool:
-    day = str(timestamp)[:10]
-    return bool(trend_map.get(day))
+def _d1_allows_long_using_previous_day(timestamp: str, trend_map: dict[str, bool]) -> bool:
+    previous_day = _previous_calendar_day(str(timestamp)[:10])
+    return bool(trend_map.get(previous_day))
+
+
+def _previous_calendar_day(day: str) -> str:
+    try:
+        return (datetime.strptime(day, "%Y-%m-%d") - timedelta(days=1)).strftime("%Y-%m-%d")
+    except Exception:
+        return ""
 
 
 def _ema(values: list[float], period: int) -> list[float | None]:
