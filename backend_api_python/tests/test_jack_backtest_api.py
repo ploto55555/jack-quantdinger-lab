@@ -56,3 +56,36 @@ def test_run_sample_accepts_custom_payload():
     assert data["summary"]["timeframe"] == "H1"
     assert data["summary"]["initial_capital"] == 500
     assert data["summary"]["final_equity"] == 923
+
+
+def test_run_candles_sample_get_computes_from_candles():
+    client = _app().test_client()
+
+    response = client.get("/api/jack-backtest/run-candles-sample?symbol=GBPJPY&timeframe=H4&limit=10&initial_capital=10000")
+
+    assert response.status_code == 200
+    data = response.get_json()["data"]
+    assert data["summary"]["strategy_name"] == "Buy & Hold Candle Chain Test"
+    assert data["summary"]["symbol"] == "GBPJPY"
+    assert data["summary"]["timeframe"] == "H4"
+    assert data["summary"]["status"] == "computed_from_sample_candles"
+    assert data["summary"]["number_of_candles"] == 10
+    assert data["summary"]["number_of_trades"] == 1
+    assert data["equity_curve"]
+    assert data["trades"][0]["side"] == "long"
+
+
+def test_run_candles_sample_post_accepts_payload():
+    client = _app().test_client()
+
+    response = client.post(
+        "/api/jack-backtest/run-candles-sample",
+        json={"symbol": "XAUUSD", "timeframe": "H1", "limit": 5, "initial_capital": 500},
+    )
+
+    assert response.status_code == 200
+    data = response.get_json()["data"]
+    assert data["summary"]["symbol"] == "XAUUSD"
+    assert data["summary"]["timeframe"] == "H1"
+    assert data["summary"]["initial_capital"] == 500
+    assert len(data["equity_curve"]) == 5
