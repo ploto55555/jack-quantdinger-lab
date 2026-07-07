@@ -11,6 +11,7 @@ from app.services.jack_backtest_sample import (
 from app.services.jack_rule_research_engine import run_rule_research_v1
 from app.services.jack_rule_scan import scan_rule_v1
 from app.services.jack_walk_forward import walk_forward_v1
+from app.services.jack_stability_report import stability_report_v1
 
 jack_backtest_api = Blueprint("jack_backtest_api", __name__, url_prefix="/api/jack-backtest")
 
@@ -22,7 +23,7 @@ def _json_payload() -> dict:
 
 @jack_backtest_api.get("/health")
 def health():
-    return jsonify({"code": 1, "msg": "ok", "data": {"service": "jack-backtest", "status": "ready", "auth_required": False, "ai_token_required": False, "stage": "validation_v1"}})
+    return jsonify({"code": 1, "msg": "ok", "data": {"service": "jack-backtest", "status": "ready", "auth_required": False, "ai_token_required": False, "stage": "stability_v1"}})
 
 
 @jack_backtest_api.get("/sample-result")
@@ -78,3 +79,9 @@ def scan_rule_v1_get():
 def validate_rule_v1_get():
     payload = {"symbol": request.args.get("symbol", "GBPJPY"), "timeframe": request.args.get("timeframe", "H4"), "initial_capital": request.args.get("initial_capital", 10000), "train_end": request.args.get("train_end", "2017-12-31T23:59:59Z"), "validate_start": request.args.get("validate_start", "2018-01-01T00:00:00Z")}
     return jsonify({"code": 1, "msg": "ok", "data": walk_forward_v1(payload)})
+
+
+@jack_backtest_api.get("/stability-rule-v1")
+def stability_rule_v1_get():
+    payload = {"symbol": request.args.get("symbol", "GBPJPY"), "timeframe": request.args.get("timeframe", "H4"), "initial_capital": request.args.get("initial_capital", 10000), "top_n": request.args.get("top_n", 20), "train_end": request.args.get("train_end", "2017-12-31T23:59:59Z"), "validate_start": request.args.get("validate_start", "2018-01-01T00:00:00Z")}
+    return jsonify({"code": 1, "msg": "ok", "data": stability_report_v1(payload)})
