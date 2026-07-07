@@ -3,6 +3,9 @@
 Phase 1 storage uses JSON files so the backtest pipeline can be proven before
 PostgreSQL migrations are finalized. The public contract is intentionally close
 to a future candles table: symbol + timeframe + timestamp + OHLCV + source.
+
+Important: the default storage path is under /app/data/candles so Docker rebuilds
+keep imported CSV candles when ./data is mounted into the backend container.
 """
 from __future__ import annotations
 
@@ -13,7 +16,7 @@ from pathlib import Path
 from typing import Any
 
 
-STORAGE_ROOT = Path(os.getenv("JACK_CANDLE_STORAGE_DIR", "/tmp/jack_candles"))
+STORAGE_ROOT = Path(os.getenv("JACK_CANDLE_STORAGE_DIR", "/app/data/candles"))
 
 
 @dataclass(frozen=True)
@@ -57,7 +60,7 @@ def load_candles(symbol: str = "GBPJPY", timeframe: str = "H4", limit: int = 500
         "first_timestamp": candles[0]["timestamp"] if candles else None,
         "last_timestamp": candles[-1]["timestamp"] if candles else None,
         "candles": selected,
-        "storage": "json_file_phase1",
+        "storage": "json_file_phase1_persistent",
         "path": str(_path(symbol, timeframe)),
     }
 
@@ -73,9 +76,9 @@ def storage_status(symbol: str = "GBPJPY", timeframe: str = "H4") -> dict[str, A
         "rows_total": len(candles),
         "first_timestamp": candles[0]["timestamp"] if candles else None,
         "last_timestamp": candles[-1]["timestamp"] if candles else None,
-        "storage": "json_file_phase1",
+        "storage": "json_file_phase1_persistent",
         "path": str(_path(symbol, timeframe)),
-        "next_step": "Backtest engine should read this storage instead of calling the provider.",
+        "next_step": "Backtest engine can read this storage across Docker rebuilds.",
     }
 
 
@@ -133,7 +136,7 @@ def _storage_summary(symbol: str, timeframe: str, source: str, rows_written: int
         last_timestamp=merged[-1]["timestamp"] if merged else None,
         path=str(_path(symbol, timeframe)),
     )
-    return result.__dict__ | {"storage": "json_file_phase1"}
+    return result.__dict__ | {"storage": "json_file_phase1_persistent"}
 
 
 def _read_raw(symbol: str, timeframe: str) -> list[dict[str, Any]]:
