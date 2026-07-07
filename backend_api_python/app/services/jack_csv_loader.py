@@ -7,12 +7,21 @@ from typing import Any
 
 from app.services.jack_candle_storage import save_candles
 
-ROOT = Path(__file__).resolve().parents[3]
+
+def _find_project_root() -> Path:
+    current = Path(__file__).resolve()
+    for parent in current.parents:
+        if (parent / "data").exists() or (parent / "docker-compose.yml").exists():
+            return parent
+    return Path.cwd()
+
+
+ROOT = _find_project_root()
 DATA_DIR = ROOT / "data"
 
 
 def csv_loader_health() -> dict:
-    return {"status": "ready", "data_dir": str(DATA_DIR)}
+    return {"status": "ready", "root": str(ROOT), "data_dir": str(DATA_DIR)}
 
 
 def load_csv_to_storage(payload: dict[str, Any] | None) -> dict[str, Any]:
@@ -23,9 +32,9 @@ def load_csv_to_storage(payload: dict[str, Any] | None) -> dict[str, Any]:
     path = _safe_path(rel_path)
 
     if path is None:
-        return {"status": "invalid_file_path", "message": "Use data/forex/your_file.csv", "symbol": symbol, "timeframe": timeframe}
+        return {"status": "invalid_file_path", "message": "Use data/forex/your_file.csv", "root": str(ROOT), "data_dir": str(DATA_DIR), "symbol": symbol, "timeframe": timeframe}
     if not path.exists():
-        return {"status": "file_not_found", "file_path": str(path), "symbol": symbol, "timeframe": timeframe}
+        return {"status": "file_not_found", "file_path": str(path), "root": str(ROOT), "data_dir": str(DATA_DIR), "symbol": symbol, "timeframe": timeframe}
 
     candles: list[dict[str, Any]] = []
     rows_read = 0
