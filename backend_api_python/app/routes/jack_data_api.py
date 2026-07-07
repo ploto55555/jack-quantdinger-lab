@@ -3,6 +3,12 @@ from __future__ import annotations
 
 from flask import Blueprint, jsonify, request
 
+from app.services.jack_candle_storage import (
+    load_candles,
+    save_candles,
+    save_provider_result,
+    storage_status,
+)
 from app.services.jack_data_center_sample import (
     data_quality_report,
     get_import_plan,
@@ -42,7 +48,7 @@ def health():
             "status": "ready",
             "auth_required": False,
             "external_api_required": False,
-            "stage": "provider_adapter_skeleton",
+            "stage": "provider_and_local_storage_skeleton",
         },
     })
 
@@ -130,4 +136,64 @@ def import_api_preview():
         "code": 1,
         "msg": "ok",
         "data": build_import_job_preview(_json_payload()),
+    })
+
+
+@jack_data_api.post("/store-candles")
+def store_candles():
+    return jsonify({
+        "code": 1,
+        "msg": "ok",
+        "data": save_candles(_json_payload()),
+    })
+
+
+@jack_data_api.post("/fetch-and-store")
+def fetch_and_store():
+    provider_result = fetch_candles(_json_payload())
+    if provider_result.get("status") not in {"sample_ready", "fetched_not_stored"}:
+        return jsonify({
+            "code": 1,
+            "msg": "provider_result_not_stored",
+            "data": {
+                "provider_result": provider_result,
+                "storage_result": None,
+            },
+        })
+    return jsonify({
+        "code": 1,
+        "msg": "ok",
+        "data": {
+            "provider_result": {
+                "provider": provider_result.get("provider"),
+                "symbol": provider_result.get("symbol"),
+                "timeframe": provider_result.get("timeframe"),
+                "status": provider_result.get("status"),
+                "candles_returned": provider_result.get("candles_returned"),
+            },
+            "storage_result": save_provider_result(provider_result),
+        },
+    })
+
+
+@jack_data_api.get("/stored-candles")
+def stored_candles():
+    symbol = request.args.get("symbol", "GBPJPY")
+    timeframe = request.args.get("timeframe", "H4")
+    limit = _int_arg("limit", 500)
+    return jsonify({
+        "code": 1,
+        "msg": "ok",
+        "data": load_candles(symbol=symbol, timeframe=timeframe, limit=limit),
+    })
+
+
+@jack_data_api.get("/storage-status")
+def local_storage_status():
+    symbol = request.args.get("symbol", "GBPJPY")
+    timeframe = request.args.get("timeframe", "H4")
+    return jsonify({
+        "code": 1,
+        "msg": "ok",
+        "data": storage_status(symbol=symbol, timeframe=timeframe),
     })
