@@ -52,13 +52,22 @@ PROVIDERS = [
         note="Local deterministic candles for testing the Data Center flow.",
     ),
     ProviderSpec(
+        provider="dukascopy",
+        label="Dukascopy historical data",
+        asset_classes=["forex", "metal"],
+        requires_api_key=False,
+        env_key_name=None,
+        status="download_adapter_planned",
+        note="Primary route for long-history Forex/Gold backtest data. Next step is chunk downloader + normalizer.",
+    ),
+    ProviderSpec(
         provider="twelve_data",
         label="Twelve Data",
         asset_classes=["forex", "metal", "stock", "etf", "index"],
         requires_api_key=True,
         env_key_name="TWELVE_DATA_API_KEY",
         status="http_fetch_ready",
-        note="First real HTTP provider for Forex/Gold/Stock historical import.",
+        note="Simple API route, but free plans may hit 429 rate limits. Use as backup/validation route.",
     ),
     ProviderSpec(
         provider="oanda",
@@ -67,7 +76,7 @@ PROVIDERS = [
         requires_api_key=True,
         env_key_name="OANDA_API_KEY",
         status="adapter_stub",
-        note="Use later for Forex data and paper/live broker research flow.",
+        note="Use later for Forex data and paper/broker research flow.",
     ),
     ProviderSpec(
         provider="yahoo",
@@ -77,6 +86,15 @@ PROVIDERS = [
         env_key_name=None,
         status="adapter_stub",
         note="Use later for quick stock and ETF daily data testing.",
+    ),
+    ProviderSpec(
+        provider="stooq",
+        label="Stooq-style free daily data",
+        asset_classes=["stock", "etf", "index", "forex"],
+        requires_api_key=False,
+        env_key_name=None,
+        status="adapter_stub",
+        note="Backup no-key daily data route for MVP tests after formatter is connected.",
     ),
     ProviderSpec(
         provider="polygon",
@@ -109,6 +127,13 @@ def provider_status(provider_name: str | None = None) -> dict[str, Any]:
     return {
         "providers": [asdict(provider) | {"api_key_configured": _has_api_key(provider)} for provider in providers],
         "rule": "External providers are for import/update jobs. Backtests should read local stored candles.",
+        "recommended_routes": {
+            "forex_gold_primary": "dukascopy",
+            "forex_gold_backup": "twelve_data",
+            "forex_broker_research_later": "oanda",
+            "stocks_etf_mvp": "yahoo_or_stooq",
+            "stocks_etf_professional_later": "polygon",
+        },
     }
 
 
@@ -154,6 +179,9 @@ def fetch_candles(payload: dict[str, Any] | None) -> dict[str, Any]:
     if provider == "twelve_data":
         return _fetch_twelve_data(request_data)
 
+    if provider == "dukascopy":
+        return _dukascopy_plan(request_data)
+
     return {
         "provider": provider,
         "symbol": request_data["symbol"],
@@ -181,8 +209,9 @@ def build_import_job_preview(payload: dict[str, Any] | None) -> dict[str, Any]:
         "api_key_configured": api_key_ok,
         "storage_target": "local_candles_table",
         "backtest_rule": "After import, backtest reads local storage and should not call provider directly.",
-        "ready_to_run_real_import": provider_ok and api_key_ok and request_data["provider"] != "sample",
+        "ready_to_run_real_import": provider_ok and api_key_ok and request_data["provider"] not in {"sample", "dukascopy"},
         "next_endpoint": "/api/jack-data/fetch-provider-candles",
+        "route_note": _route_note(request_data["provider"]),
     }
 
 
@@ -248,6 +277,26 @@ def _fetch_twelve_data(request_data: dict[str, Any]) -> dict[str, Any]:
         "status": "fetched_not_stored",
         "candles": candles,
         "next_step": "Persist these candles to local storage, then make backtest read stored candles only.",
+    }
+
+
+def _dukascopy_plan(request_data: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "provider": "dukascopy",
+        "symbol": request_data["symbol"],
+        "timeframe": request_data["timeframe"],
+        "start_date": request_data["start_date"],
+        "end_date": request_data["end_date"],
+        "status": "download_adapter_planned",
+        "candles": [],
+        "message": "Dukascopy is the planned primary route for long-history Forex/Gold data. Next implementation: chunk downloader, binary/CSV normalizer, then save to local candle storage.",
+        "planned_pipeline": [
+            "download source chunks",
+            "normalize to Jack candle schema",
+            "aggregate to requested timeframe if needed",
+            "save to local storage",
+            "run backtest from local storage",
+        ],
     }
 
 
@@ -319,6 +368,16 @@ def _sample_provider_candles(request_data: dict[str, Any]) -> list[dict[str, Any
         )
 
     return [asdict(candle) for candle in candles]
+
+
+def _route_note(provider: str) -> str:
+    if provider == "dukascopy":
+        return "Primary planned route for long-history Forex/Gold. Needs chunk downloader implementation next."
+    if provider == "twelve_data":
+        return "Backup/validation route. May hit 429 on free plan."
+    if provider in {"yahoo", "stooq"}:
+        return "Useful for no-key daily stock/ETF MVP data after formatter is connected."
+    return "Provider route exists in architecture; implementation can be added without changing backtest contracts."
 
 
 def _to_twelve_data_symbol(symbol: str) -> str:
