@@ -1,8 +1,8 @@
-"""Sample-only Jack Backtest service.
+"""Jack Backtest service.
 
 This module is deliberately deterministic and does not touch broker APIs,
-AI APIs, external data sources, or live execution. It exists to prove the
-Jack Backtest API contract before connecting real 10+ year historical data.
+AI APIs, external data sources, or live execution. It proves the
+Data Center -> local candle storage -> backtest result chain.
 """
 from __future__ import annotations
 
@@ -10,8 +10,8 @@ from dataclasses import dataclass, asdict
 from datetime import date, timedelta
 from typing import Any
 
+from app.services.jack_candle_storage import load_candles
 from app.services.jack_data_center_sample import sample_candles
-from app.services.jack_forex_csv_store import load_stored_candles
 
 
 @dataclass(frozen=True)
@@ -143,41 +143,53 @@ def build_candle_buy_hold_backtest(payload: dict[str, Any] | None = None) -> dic
 
 
 def build_stored_forex_buy_hold_backtest(payload: dict[str, Any] | None = None) -> dict[str, Any]:
-    """Run buy-and-hold from locally imported Forex CSV candles."""
+    """Run buy-and-hold from Jack local candle storage."""
     payload = payload or {}
     symbol = _to_str(payload.get("symbol"), "GBPJPY").upper()
     timeframe = _to_str(payload.get("timeframe"), "H4").upper()
     limit_value = _to_int(payload.get("limit"), 0)
-    limit = limit_value if limit_value > 0 else None
+    limit = limit_value if limit_value > 0 else 20000
     initial_capital = max(_to_float(payload.get("initial_capital"), 10000.0), 1.0)
 
-    candles = load_stored_candles(symbol=symbol, timeframe=timeframe, limit=limit)
+    storage_result = load_candles(symbol=symbol, timeframe=timeframe, limit=limit)
+    candles = storage_result.get("candles", [])
     if len(candles) < 2:
         return {
             "summary": {
-                "strategy_name": "Stored Forex Buy & Hold Test",
+                "strategy_name": "Stored Candle Buy & Hold Test",
                 "symbol": symbol,
                 "timeframe": timeframe,
                 "initial_capital": initial_capital,
                 "status": "missing_or_insufficient_stored_candles",
                 "number_of_candles": len(candles),
+                "storage": storage_result.get("storage"),
+                "path": storage_result.get("path"),
             },
             "equity_curve": [],
             "trades": [],
             "notes": [
-                "Import CSV first via /api/jack-forex-data/import-csv.",
+                "Import candles first via /api/jack-data/fetch-and-store or /api/jack-data/store-candles.",
                 "Need at least 2 stored candles for this chain test.",
             ],
         }
 
-    return _build_buy_hold_result(
+    result = _build_buy_hold_result(
         candles=candles,
         symbol=symbol,
         timeframe=timeframe,
         initial_capital=initial_capital,
-        status="computed_from_stored_forex_candles",
-        note_prefix="Computed from locally imported Forex CSV candles.",
+        status="computed_from_jack_local_candle_storage",
+        note_prefix="Computed from Jack Data Center local candle storage.",
     )
+    result["storage"] = {
+        "storage": storage_result.get("storage"),
+        "path": storage_result.get("path"),
+        "rows_total": storage_result.get("rows_total"),
+        "rows_returned": storage_result.get("rows_returned"),
+        "first_timestamp": storage_result.get("first_timestamp"),
+        "last_timestamp": storage_result.get("last_timestamp"),
+    }
+    return result
 
 
 def _build_buy_hold_result(
@@ -196,7 +208,7 @@ def _build_buy_hold_result(
     max_drawdown_percent = _max_drawdown_percent([point["equity"] for point in equity_curve])
 
     summary = {
-        "strategy_name": "Buy & Hold Candle Chain Test" if status == "computed_from_sample_candles" else "Stored Forex Buy & Hold Test",
+        "strategy_name": "Buy & Hold Candle Chain Test" if status == "computed_from_sample_candles" else "Stored Candle Buy & Hold Test",
         "symbol": symbol,
         "timeframe": timeframe,
         "start_date": candles[0]["timestamp"],
@@ -234,7 +246,7 @@ def _build_buy_hold_result(
             "No AI token used.",
             "No external market data API used during backtest.",
             "No broker connection used.",
-            "Next step: replace buy-and-hold with a real Forex strategy engine.",
+            "Next step: replace buy-and-hold with a rule-based Forex strategy engine.",
         ],
     }
 
