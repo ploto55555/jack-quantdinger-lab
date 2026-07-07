@@ -16,6 +16,8 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+from app.services.jack_dukascopy_provider import fetch_dukascopy_candles
+
 
 @dataclass(frozen=True)
 class ProviderSpec:
@@ -57,8 +59,8 @@ PROVIDERS = [
         asset_classes=["forex", "metal"],
         requires_api_key=False,
         env_key_name=None,
-        status="download_adapter_planned",
-        note="Primary route for long-history Forex/Gold backtest data. Next step is chunk downloader + normalizer.",
+        status="http_fetch_ready_limited_window",
+        note="Primary route for long-history Forex/Gold backtest data. Start with small test windows, then store locally.",
     ),
     ProviderSpec(
         provider="twelve_data",
@@ -180,7 +182,7 @@ def fetch_candles(payload: dict[str, Any] | None) -> dict[str, Any]:
         return _fetch_twelve_data(request_data)
 
     if provider == "dukascopy":
-        return _dukascopy_plan(request_data)
+        return fetch_dukascopy_candles(request_data)
 
     return {
         "provider": provider,
@@ -209,7 +211,7 @@ def build_import_job_preview(payload: dict[str, Any] | None) -> dict[str, Any]:
         "api_key_configured": api_key_ok,
         "storage_target": "local_candles_table",
         "backtest_rule": "After import, backtest reads local storage and should not call provider directly.",
-        "ready_to_run_real_import": provider_ok and api_key_ok and request_data["provider"] not in {"sample", "dukascopy"},
+        "ready_to_run_real_import": provider_ok and api_key_ok and request_data["provider"] not in {"sample"},
         "next_endpoint": "/api/jack-data/fetch-provider-candles",
         "route_note": _route_note(request_data["provider"]),
     }
@@ -277,26 +279,6 @@ def _fetch_twelve_data(request_data: dict[str, Any]) -> dict[str, Any]:
         "status": "fetched_not_stored",
         "candles": candles,
         "next_step": "Persist these candles to local storage, then make backtest read stored candles only.",
-    }
-
-
-def _dukascopy_plan(request_data: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "provider": "dukascopy",
-        "symbol": request_data["symbol"],
-        "timeframe": request_data["timeframe"],
-        "start_date": request_data["start_date"],
-        "end_date": request_data["end_date"],
-        "status": "download_adapter_planned",
-        "candles": [],
-        "message": "Dukascopy is the planned primary route for long-history Forex/Gold data. Next implementation: chunk downloader, binary/CSV normalizer, then save to local candle storage.",
-        "planned_pipeline": [
-            "download source chunks",
-            "normalize to Jack candle schema",
-            "aggregate to requested timeframe if needed",
-            "save to local storage",
-            "run backtest from local storage",
-        ],
     }
 
 
@@ -372,7 +354,7 @@ def _sample_provider_candles(request_data: dict[str, Any]) -> list[dict[str, Any
 
 def _route_note(provider: str) -> str:
     if provider == "dukascopy":
-        return "Primary planned route for long-history Forex/Gold. Needs chunk downloader implementation next."
+        return "Primary route for long-history Forex/Gold. Small window downloader is connected; store results locally before backtesting."
     if provider == "twelve_data":
         return "Backup/validation route. May hit 429 on free plan."
     if provider in {"yahoo", "stooq"}:
