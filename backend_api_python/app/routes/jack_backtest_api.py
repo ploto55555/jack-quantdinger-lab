@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from flask import Blueprint, jsonify, request
 
-from app.services.jack_backtest_sample import build_sample_backtest
+from app.services.jack_backtest_sample import build_candle_buy_hold_backtest, build_sample_backtest
 
 
 jack_backtest_api = Blueprint("jack_backtest_api", __name__, url_prefix="/api/jack-backtest")
@@ -44,4 +44,28 @@ def run_sample():
         "code": 1,
         "msg": "ok",
         "data": build_sample_backtest(_json_payload()),
+    })
+
+
+@jack_backtest_api.get("/run-candles-sample")
+def run_candles_sample_get():
+    payload = {
+        "symbol": request.args.get("symbol", "GBPJPY"),
+        "timeframe": request.args.get("timeframe", "H4"),
+        "limit": request.args.get("limit", 120),
+        "initial_capital": request.args.get("initial_capital", 10000),
+    }
+    return jsonify({
+        "code": 1,
+        "msg": "ok",
+        "data": build_candle_buy_hold_backtest(payload),
+    })
+
+
+@jack_backtest_api.post("/run-candles-sample")
+def run_candles_sample_post():
+    return jsonify({
+        "code": 1,
+        "msg": "ok",
+        "data": build_candle_buy_hold_backtest(_json_payload()),
     })
