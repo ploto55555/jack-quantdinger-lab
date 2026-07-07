@@ -10,6 +10,8 @@ from dataclasses import dataclass, asdict
 from datetime import date, timedelta
 from typing import Any
 
+from app.services.jack_data_center_sample import sample_candles
+
 
 @dataclass(frozen=True)
 class BacktestSummary:
@@ -45,6 +47,13 @@ DEFAULT_SAMPLE_INPUT = {
 def _to_float(value: Any, default: float) -> float:
     try:
         return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _to_int(value: Any, default: int) -> int:
+    try:
+        return int(value)
     except (TypeError, ValueError):
         return default
 
@@ -107,6 +116,92 @@ def build_sample_backtest(payload: dict[str, Any] | None = None) -> dict[str, An
             "Next step: connect local 10+ year historical candles and real backtest engine.",
         ],
     }
+
+
+def build_candle_buy_hold_backtest(payload: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Run a simple buy-and-hold calculation from sample candles.
+
+    This proves the data -> backtest -> result chain. It is not yet a real
+    trading strategy engine.
+    """
+    payload = payload or {}
+    symbol = _to_str(payload.get("symbol"), "GBPJPY").upper()
+    timeframe = _to_str(payload.get("timeframe"), "H4").upper()
+    limit = max(2, min(_to_int(payload.get("limit"), 120), 500))
+    initial_capital = max(_to_float(payload.get("initial_capital"), 10000.0), 1.0)
+
+    candles = sample_candles(symbol=symbol, timeframe=timeframe, limit=limit)
+    start_close = float(candles[0]["close"])
+    end_close = float(candles[-1]["close"])
+    total_return_percent = ((end_close / start_close) - 1.0) * 100.0
+    final_equity = round(initial_capital * (end_close / start_close), 2)
+    equity_curve = _equity_curve_from_candles(candles, initial_capital, start_close)
+    max_drawdown_percent = _max_drawdown_percent([point["equity"] for point in equity_curve])
+
+    summary = {
+        "strategy_name": "Buy & Hold Candle Chain Test",
+        "symbol": symbol,
+        "timeframe": timeframe,
+        "start_date": candles[0]["timestamp"],
+        "end_date": candles[-1]["timestamp"],
+        "initial_capital": initial_capital,
+        "final_equity": final_equity,
+        "start_close": start_close,
+        "end_close": end_close,
+        "total_return_percent": round(total_return_percent, 4),
+        "max_drawdown_percent": round(max_drawdown_percent, 4),
+        "number_of_candles": len(candles),
+        "number_of_trades": 1,
+        "status": "computed_from_sample_candles",
+    }
+
+    trade = {
+        "id": 1,
+        "symbol": symbol,
+        "side": "long",
+        "entry_date": candles[0]["timestamp"],
+        "entry_price": start_close,
+        "exit_date": candles[-1]["timestamp"],
+        "exit_price": end_close,
+        "return_percent": round(total_return_percent, 4),
+        "reason": "buy first sample candle close, sell last sample candle close",
+    }
+
+    return {
+        "summary": summary,
+        "equity_curve": equity_curve,
+        "trades": [trade],
+        "candles_used_preview": candles[:5],
+        "notes": [
+            "Computed from Jack Data Center sample candles.",
+            "No AI token used.",
+            "No external market data API used.",
+            "No broker connection used.",
+            "Next step: replace sample candles with imported 10+ year historical candles.",
+        ],
+    }
+
+
+def _equity_curve_from_candles(candles: list[dict[str, Any]], initial_capital: float, start_close: float) -> list[dict[str, Any]]:
+    return [
+        {
+            "date": candle["timestamp"],
+            "equity": round(initial_capital * (float(candle["close"]) / start_close), 2),
+            "close": float(candle["close"]),
+        }
+        for candle in candles
+    ]
+
+
+def _max_drawdown_percent(equity_values: list[float]) -> float:
+    peak = equity_values[0] if equity_values else 0.0
+    max_drawdown = 0.0
+    for equity in equity_values:
+        peak = max(peak, equity)
+        if peak > 0:
+            drawdown = ((equity / peak) - 1.0) * 100.0
+            max_drawdown = min(max_drawdown, drawdown)
+    return max_drawdown
 
 
 def _sample_equity_curve(initial_capital: float) -> list[dict[str, Any]]:
