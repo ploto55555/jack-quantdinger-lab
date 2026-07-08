@@ -192,3 +192,37 @@ def jack_brain_capital_compounding_compare_v1():
     }
     result = compare_compounding_plans_v1(payload)
     return jsonify(result)
+
+
+from app.services.jack_market_context import (
+    get_calendar_context_v1,
+    get_news_context_v1,
+    get_market_context_v1,
+)
+
+
+@jack_brain_api.get("/calendar-context-v1")
+def jack_brain_calendar_context_v1():
+    payload = {
+        "symbol": request.args.get("symbol", "GBPJPY"),
+    }
+    result = get_calendar_context_v1(payload)
+    return jsonify(result)
+
+
+@jack_brain_api.get("/news-context-v1")
+def jack_brain_news_context_v1():
+    payload = {
+        "symbol": request.args.get("symbol", "GBPJPY"),
+    }
+    result = get_news_context_v1(payload)
+    return jsonify(result)
+
+
+@jack_brain_api.get("/market-context-v1")
+def jack_brain_market_context_v1():
+    payload = {
+        "symbol": request.args.get("symbol", "GBPJPY"),
+    }
+    result = get_market_context_v1(payload)
+    return jsonify(result)
