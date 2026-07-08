@@ -363,3 +363,29 @@ def jack_brain_goal_brief_v1():
     }
     result = build_goal_brief_v1(payload)
     return jsonify(result)
+
+
+from app.services.jack_strategy_selector_v2 import select_strategy_v2
+
+
+@jack_brain_api.get("/strategy-selector-v2")
+def jack_brain_strategy_selector_v2():
+    payload = {
+        "symbol": request.args.get("symbol", "GBPJPY"),
+        "direction": request.args.get("direction", "auto"),
+        "start_equity": request.args.get("start_equity", 500),
+        "target_equity": request.args.get("target_equity", 100000),
+        "current_equity": request.args.get("current_equity", request.args.get("equity", 500)),
+        "peak_equity": request.args.get("peak_equity", request.args.get("current_equity", request.args.get("equity", 500))),
+        "elapsed_days": request.args.get("elapsed_days", 0),
+        "total_days": request.args.get("total_days", 365),
+        "consecutive_losses": request.args.get("consecutive_losses", 0),
+        "news_risk": request.args.get("news_risk", "unknown"),
+        "market_quality": request.args.get("market_quality", "normal"),
+        "d1_signal": request.args.get("d1_signal", "unknown"),
+        "h1_regime": request.args.get("h1_regime", "unknown"),
+        "m15_signal": request.args.get("m15_signal", "unknown"),
+        "m5_signal": request.args.get("m5_signal", "unknown"),
+    }
+    result = select_strategy_v2(payload)
+    return jsonify(result)
