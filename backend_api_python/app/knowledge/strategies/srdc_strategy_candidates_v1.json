@@ -1,0 +1,305 @@
+{
+  "version": "srdc_strategy_candidates_v1",
+  "mode": "personal_research_support_only",
+  "symbol": "GBPJPY",
+  "created_from_research": "SRDC + Granville + Ketty backtest research in ChatGPT conversation",
+  "risk_notice": "Research candidates only. Not broker-connected, not auto-trading, and not financial advice.",
+  "default_goal_context": {
+    "start_equity": 500,
+    "target_equity": 100000,
+    "target_months": 12,
+    "growth_style": "aggressive_but_controlled",
+    "primary_use": "goal-based trade readiness and forward testing"
+  },
+  "candidates": [
+    {
+      "id": "SRDC_GBPJPY_KETTY_H1_TREND_MOD_RUNNER_V1",
+      "rank": 1,
+      "role": "main_forward_test_candidate",
+      "status": "strong_research_candidate_not_auto_trading",
+      "summary": "Main balanced candidate. SRDC yesterday high/low breakout filtered by D1 trend, D1 Bollinger expansion, and H1 Ketty trend regime. Runner exit after profit protection.",
+      "pair": "GBPJPY",
+      "base_strategy": "SRDC yesterday high/low breakout",
+      "reference_timeframes": ["D1", "H1"],
+      "execution_timeframe": "M15",
+      "session": "London open 07:00-10:59",
+      "entry_rules": {
+        "long": "Buy stop at yesterday high + 2 pips only when filters approve long.",
+        "short": "Sell stop at yesterday low - 2 pips only when filters approve short.",
+        "entry_buffer_pips": 2,
+        "max_open_trades": 1
+      },
+      "filters": {
+        "d1_trend": "D1 close > EMA50 only long; D1 close < EMA50 only short.",
+        "d1_volatility": "D1 Bollinger Band width expanding.",
+        "h1_ketty_trend_mod": "Long: H1 price above SMA14 and BB middle, SMA14 upward, SMA20 not down. Short: inverse.",
+        "market_regime": "Use only in clear trend or trend-breakout regime. Range/unclear = wait."
+      },
+      "exit_rules": {
+        "initial_sl_pips": 15,
+        "profit_lock_trigger_pips": 15,
+        "profit_lock_stop_pips": 10,
+        "final_tp_pips": 120,
+        "estimated_cost_pips": 2
+      },
+      "backtest_summary": {
+        "source_timeframe": "M15",
+        "period": "2022-07 to 2026-07",
+        "trades": 110,
+        "win_rate_percent": 72.7,
+        "profit_factor": 5.78,
+        "total_pips": 2440,
+        "max_drawdown_percent": -10.5,
+        "max_losing_streak": 2,
+        "positive_years": "5/5",
+        "aggressive_compounding_500_start": 99588
+      },
+      "goal_use": {
+        "mode": "main",
+        "when_to_use": "Normal growth mode when goal path is on track or moderately behind, no major drawdown, no high-impact news risk.",
+        "when_to_block": "Block during unclear H1 regime, range, high-impact news window, or after hitting defense drawdown rules."
+      }
+    },
+    {
+      "id": "SRDC_GBPJPY_KETTY_H1_STRICT_RUNNER_V1",
+      "rank": 2,
+      "role": "a_plus_safe_candidate",
+      "status": "highest_quality_research_candidate_not_auto_trading",
+      "summary": "A+ strict candidate. Lower trade count, highest quality profile, best for drawdown recovery and capital protection.",
+      "pair": "GBPJPY",
+      "base_strategy": "SRDC yesterday high/low breakout",
+      "reference_timeframes": ["D1", "H1"],
+      "execution_timeframe": "M15",
+      "session": "London open 07:00-10:59",
+      "entry_rules": {
+        "long": "Buy stop at yesterday high + 2 pips only when strict trend filters approve long.",
+        "short": "Sell stop at yesterday low - 2 pips only when strict trend filters approve short.",
+        "entry_buffer_pips": 2,
+        "max_open_trades": 1
+      },
+      "filters": {
+        "d1_trend": "D1 close > EMA50 only long; D1 close < EMA50 only short.",
+        "d1_volatility": "D1 Bollinger Band width expanding.",
+        "h1_ketty_strict": "Strict trend: price, MA angle, BB middle, and trend structure must all agree.",
+        "market_regime": "Only clear trend. Range/unclear = wait."
+      },
+      "exit_rules": {
+        "initial_sl_pips": 15,
+        "profit_lock_trigger_pips": 15,
+        "profit_lock_stop_pips": 10,
+        "final_tp_pips": 120,
+        "estimated_cost_pips": 2
+      },
+      "backtest_summary": {
+        "source_timeframe": "M15",
+        "period": "2022-07 to 2026-07",
+        "trades": 56,
+        "win_rate_percent": 83.9,
+        "profit_factor": 15.40,
+        "total_pips": 2203,
+        "max_drawdown_percent": -8.3,
+        "max_losing_streak": 2,
+        "positive_years": "5/5",
+        "aggressive_compounding_500_start": 63020
+      },
+      "goal_use": {
+        "mode": "a_plus_safe",
+        "when_to_use": "Use after drawdown, after two losses, near major equity milestones, or when protecting gains.",
+        "when_to_block": "Block if filters are not strict-clear, news risk is high, or London window is missed."
+      }
+    },
+    {
+      "id": "SRDC_GBPJPY_LONDON_EMA50_BBEXP_RUNNER_V1",
+      "rank": 3,
+      "role": "aggressive_research_candidate",
+      "status": "strong_but_higher_drawdown_research_candidate_not_auto_trading",
+      "summary": "Aggressive SRDC candidate using D1 EMA50 and Bollinger expansion without Ketty H1 filter. More trades and higher historical compounding, but bigger drawdown.",
+      "pair": "GBPJPY",
+      "base_strategy": "SRDC yesterday high/low breakout",
+      "reference_timeframes": ["D1"],
+      "execution_timeframe": "M15",
+      "session": "London open 07:00-10:59",
+      "entry_rules": {
+        "long": "Buy stop at yesterday high + 2 pips when D1 filters approve long.",
+        "short": "Sell stop at yesterday low - 2 pips when D1 filters approve short.",
+        "entry_buffer_pips": 2,
+        "max_open_trades": 1
+      },
+      "filters": {
+        "d1_trend": "D1 close > EMA50 only long; D1 close < EMA50 only short.",
+        "d1_volatility": "D1 Bollinger Band width expanding."
+      },
+      "exit_rules": {
+        "initial_sl_pips": 15,
+        "profit_lock_trigger_pips": 15,
+        "profit_lock_stop_pips": 10,
+        "final_tp_pips": 120,
+        "estimated_cost_pips": 2
+      },
+      "backtest_summary": {
+        "source_timeframe": "M15",
+        "period": "2022-07 to 2026-07",
+        "trades": 206,
+        "win_rate_percent": 67.5,
+        "profit_factor": 4.55,
+        "total_pips": 4043,
+        "max_drawdown_percent": -17.9,
+        "max_losing_streak": 4,
+        "positive_years": "5/5",
+        "aggressive_compounding_500_start": 2927301
+      },
+      "goal_use": {
+        "mode": "attack_research",
+        "when_to_use": "Only when equity is near new high, no recent loss streak, and market quality is very clear.",
+        "when_to_block": "Block after drawdown, after loss streak, near target protection stage, or high news risk."
+      }
+    },
+    {
+      "id": "SRDC_GBPJPY_LONDON_EMA50_BBEXP_GRANVILLE_G2_EMA20_RUNNER_V1",
+      "rank": 4,
+      "role": "granville_health_candidate",
+      "status": "healthy_research_candidate_not_auto_trading",
+      "summary": "Granville G2 candidate. Uses pullback/continuation idea: only take SRDC when H1 EMA20 structure supports Granville Buy2/Sell2.",
+      "pair": "GBPJPY",
+      "base_strategy": "SRDC yesterday high/low breakout",
+      "reference_timeframes": ["D1", "H1"],
+      "execution_timeframe": "M15",
+      "session": "London open 07:00-10:59",
+      "entry_rules": {
+        "long": "Buy stop at yesterday high + 2 pips after H1 Granville Buy2 EMA20 context.",
+        "short": "Sell stop at yesterday low - 2 pips after H1 Granville Sell2 EMA20 context.",
+        "entry_buffer_pips": 2,
+        "max_open_trades": 1
+      },
+      "filters": {
+        "d1_trend": "D1 close > EMA50 only long; D1 close < EMA50 only short.",
+        "d1_volatility": "D1 Bollinger Band width expanding.",
+        "h1_granville_g2_ema20": "Use Buy2/Sell2 only: trend pullback near EMA20 then continuation. Do not use countertrend Granville points."
+      },
+      "exit_rules": {
+        "initial_sl_pips": 15,
+        "profit_lock_trigger_pips": 15,
+        "profit_lock_stop_pips": 10,
+        "final_tp_pips": 120,
+        "estimated_cost_pips": 2
+      },
+      "backtest_summary": {
+        "source_timeframe": "M15",
+        "period": "2022-07 to 2026-07",
+        "trades": 175,
+        "win_rate_percent": 66.9,
+        "profit_factor": 4.63,
+        "total_pips": 3580,
+        "max_drawdown_percent": -17.9,
+        "max_losing_streak": 3,
+        "positive_years": "5/5",
+        "aggressive_compounding_500_start": 1077299
+      },
+      "goal_use": {
+        "mode": "healthy_research",
+        "when_to_use": "Use as secondary confirmation when market shows pullback-continuation structure.",
+        "when_to_block": "Block if price is chasing far from EMA20 or H1 pullback structure is missing."
+      }
+    },
+    {
+      "id": "SRDC_GBPJPY_M5_KETTY_H1_STRICT_RUNNER_V1",
+      "rank": 5,
+      "role": "m5_execution_confirmation_candidate",
+      "status": "execution_filter_research_candidate_not_main_strategy",
+      "summary": "M5 strict execution confirmation. Not the main strategy brain. Use M5 to refine entry only after D1/H1/M15 approve.",
+      "pair": "GBPJPY",
+      "base_strategy": "SRDC yesterday high/low breakout",
+      "reference_timeframes": ["D1", "H1", "M15"],
+      "execution_timeframe": "M5",
+      "session": "London open 07:00-10:59",
+      "entry_rules": {
+        "long": "M5 confirms execution after higher timeframes approve SRDC long.",
+        "short": "M5 confirms execution after higher timeframes approve SRDC short.",
+        "entry_buffer_pips": 2,
+        "max_open_trades": 1
+      },
+      "filters": {
+        "d1_trend": "D1 close > EMA50 only long; D1 close < EMA50 only short.",
+        "d1_volatility": "D1 Bollinger Band width expanding.",
+        "h1_ketty_strict": "Strict H1 trend required.",
+        "m5_use": "Execution precision only. Avoid using M5 alone as the strategy brain."
+      },
+      "exit_rules": {
+        "initial_sl_pips": 15,
+        "profit_lock_trigger_pips": 15,
+        "profit_lock_stop_pips": 10,
+        "final_tp_pips": 120,
+        "estimated_cost_pips": 2
+      },
+      "backtest_summary": {
+        "source_timeframe": "M5",
+        "period": "2025-03 to 2026-07",
+        "trades": 26,
+        "win_rate_percent": 80.8,
+        "profit_factor": 3.27,
+        "total_pips": 193,
+        "max_drawdown_percent": -8.3,
+        "max_losing_streak": 2,
+        "positive_years": "short_data_only",
+        "aggressive_compounding_500_start": 774
+      },
+      "goal_use": {
+        "mode": "execution_confirmation",
+        "when_to_use": "Use only to refine or confirm entry after main candidate gives READY.",
+        "when_to_block": "Block if higher timeframe setup is not ready."
+      }
+    },
+    {
+      "id": "SRDC_GBPJPY_KETTY_H1_TREND_ONLY_ATTACK_V1",
+      "rank": 6,
+      "role": "attack_research_only_candidate",
+      "status": "attack_research_only_not_forward_test_primary",
+      "summary": "Very aggressive H1 Ketty trend-only version. High historical compounding but less protective than main candidate. Keep for research, not first live use.",
+      "pair": "GBPJPY",
+      "base_strategy": "SRDC yesterday high/low breakout",
+      "reference_timeframes": ["H1"],
+      "execution_timeframe": "M15",
+      "session": "London open 07:00-10:59",
+      "entry_rules": {
+        "long": "Buy stop at yesterday high + 2 pips when H1 Ketty trend approves long.",
+        "short": "Sell stop at yesterday low - 2 pips when H1 Ketty trend approves short.",
+        "entry_buffer_pips": 2,
+        "max_open_trades": 1
+      },
+      "filters": {
+        "h1_ketty_trend_mod": "H1 trend mod only. D1 EMA50 and D1 BB expansion are not required in this research version."
+      },
+      "exit_rules": {
+        "initial_sl_pips": 15,
+        "profit_lock_trigger_pips": 15,
+        "profit_lock_stop_pips": 10,
+        "final_tp_pips": 120,
+        "estimated_cost_pips": 2
+      },
+      "backtest_summary": {
+        "source_timeframe": "M15",
+        "period": "2022-07 to 2026-07",
+        "trades": 323,
+        "win_rate_percent": 70.9,
+        "profit_factor": 4.52,
+        "total_pips": 5624,
+        "max_drawdown_percent": -20.4,
+        "max_losing_streak": null,
+        "positive_years": "not_primary_metric",
+        "aggressive_compounding_500_start": 94463741
+      },
+      "goal_use": {
+        "mode": "attack_research_only",
+        "when_to_use": "Research only. Consider only when future forward test proves stability.",
+        "when_to_block": "Block in real trading until forward tested and risk rules are approved."
+      }
+    }
+  ],
+  "mode_selection_rules": {
+    "a_plus_safe": "Use after drawdown, after two losses, near major milestone, or when protecting gains.",
+    "main": "Use for normal goal path growth when market and account state are healthy.",
+    "attack_research": "Research-only or rare use near equity high with no drawdown and strong market quality.",
+    "execution_confirmation": "Use M5 only after higher timeframes approve.",
+    "no_trade": "Use during range, unclear regime, high-impact news window, missed London setup, or discipline violation risk."
+  }
+}
