@@ -1,0 +1,14 @@
+# Jack Personal AI Capital OS local frontend override
+# Docker Compose automatically loads this file together with docker-compose.yml.
+# Result: http://localhost:8888 opens Jack Personal AI Capital OS instead of the default QuantDinger prebuilt frontend.
+
+services:
+  frontend:
+    image: nginx:1.27-alpine
+    pull_policy: if_not_present
+    container_name: jack-os-frontend
+    volumes:
+      - ./jack-os-frontend:/usr/share/nginx/html:ro
+      - ./jack-os-frontend/nginx.conf:/etc/nginx/templates/default.conf.template:ro
+    environment:
+      - BACKEND_URL=${BACKEND_URL:-http://backend:5000}
