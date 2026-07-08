@@ -389,3 +389,20 @@ def jack_brain_strategy_selector_v2():
     }
     result = select_strategy_v2(payload)
     return jsonify(result)
+
+
+from app.services.jack_backtest_dashboard import (
+    get_backtest_dashboard_data_v1,
+    get_backtest_dashboard_html_v1,
+)
+
+
+@jack_brain_api.get("/backtest-dashboard-data-v1")
+def jack_brain_backtest_dashboard_data_v1():
+    result = get_backtest_dashboard_data_v1()
+    return jsonify(result)
+
+
+@jack_brain_api.get("/backtest-dashboard-v1")
+def jack_brain_backtest_dashboard_v1():
+    return get_backtest_dashboard_html_v1()
