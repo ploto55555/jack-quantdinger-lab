@@ -406,3 +406,30 @@ def jack_brain_backtest_dashboard_data_v1():
 @jack_brain_api.get("/backtest-dashboard-v1")
 def jack_brain_backtest_dashboard_v1():
     return get_backtest_dashboard_html_v1()
+
+
+from app.services.jack_market_data_feed import (
+    get_market_data_status_v1,
+    get_latest_candles_v1,
+)
+
+
+@jack_brain_api.get("/market-data-status-v1")
+def jack_brain_market_data_status_v1():
+    payload = {
+        "symbol": request.args.get("symbol", "GBPJPY"),
+    }
+    result = get_market_data_status_v1(payload)
+    return jsonify(result)
+
+
+@jack_brain_api.get("/latest-candles-v1")
+def jack_brain_latest_candles_v1():
+    raw_timeframes = request.args.get("timeframes", "D1,H1,M15,M5")
+    payload = {
+        "symbol": request.args.get("symbol", "GBPJPY"),
+        "timeframes": [part.strip().upper() for part in raw_timeframes.split(",") if part.strip()],
+        "limit": request.args.get("limit", 300),
+    }
+    result = get_latest_candles_v1(payload)
+    return jsonify(result)
