@@ -93,3 +93,72 @@ from app.services.jack_brain_front_ui import get_jack_brain_front_ui_html
 @jack_brain_api.get("/front-ui-v1")
 def jack_brain_front_ui_v1():
     return get_jack_brain_front_ui_html()
+
+
+from app.services.jack_trade_journal import (
+    add_trade_journal_v1,
+    list_trade_journal_v1,
+    trade_journal_summary_v1,
+)
+
+from app.services.jack_memory_store import (
+    add_memory_v1,
+    list_memory_v1,
+    search_memory_v1,
+)
+
+
+@jack_brain_api.post("/save-journal-v1")
+def jack_brain_save_journal_v1():
+    payload = request.get_json(silent=True) or {}
+    result = add_trade_journal_v1(payload)
+    return jsonify(result)
+
+
+@jack_brain_api.get("/list-journal-v1")
+def jack_brain_list_journal_v1():
+    payload = {
+        "symbol": request.args.get("symbol", ""),
+        "status": request.args.get("status", ""),
+        "limit": request.args.get("limit", 50),
+    }
+    result = list_trade_journal_v1(payload)
+    return jsonify(result)
+
+
+@jack_brain_api.get("/journal-summary-v1")
+def jack_brain_journal_summary_v1():
+    payload = {
+        "symbol": request.args.get("symbol", ""),
+    }
+    result = trade_journal_summary_v1(payload)
+    return jsonify(result)
+
+
+@jack_brain_api.post("/save-memory-v1")
+def jack_brain_save_memory_v1():
+    payload = request.get_json(silent=True) or {}
+    result = add_memory_v1(payload)
+    return jsonify(result)
+
+
+@jack_brain_api.get("/list-memory-v1")
+def jack_brain_list_memory_v1():
+    payload = {
+        "symbol": request.args.get("symbol", ""),
+        "memory_type": request.args.get("memory_type", ""),
+        "limit": request.args.get("limit", 50),
+    }
+    result = list_memory_v1(payload)
+    return jsonify(result)
+
+
+@jack_brain_api.get("/search-memory-v1")
+def jack_brain_search_memory_v1():
+    payload = {
+        "query": request.args.get("query", ""),
+        "symbol": request.args.get("symbol", ""),
+        "limit": request.args.get("limit", 10),
+    }
+    result = search_memory_v1(payload)
+    return jsonify(result)
