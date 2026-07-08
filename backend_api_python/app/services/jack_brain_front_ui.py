@@ -1,7 +1,7 @@
 ﻿from flask import Response
 
 
-def get_jack_brain_front_ui_html() -> HTMLResponse:
+def get_jack_brain_front_ui_html() -> Response:
     html = """
 <!doctype html>
 <html>
