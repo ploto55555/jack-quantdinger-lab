@@ -1,4 +1,4 @@
-﻿# QuantDinger Docker Compose - One-Click Deployment
+# QuantDinger Docker Compose - One-Click Deployment
 # Usage:
 #   1. Copy env.example to .env and edit your settings
 #      cp backend_api_python/env.example backend_api_python/.env
@@ -111,8 +111,9 @@ services:
       - "${BACKEND_PORT:-127.0.0.1:5000}:5000"
     volumes:
       - backend_logs:/app/logs
-      # Project data is mounted from Windows into Docker so CSV files can be imported.
-      - ./data:/app/data
+      # Jack AI Capital OS market data CSV files are mounted here.
+      # Put files in: backend_api_python/data/market/GBPJPY_D1.csv etc.
+      - ./backend_api_python/data:/app/data
       # Mount .env for runtime config and admin-panel updates
       - ./backend_api_python/.env:/app/.env
     environment:
@@ -214,7 +215,7 @@ services:
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost/health"]
       interval: 30s
-      timeout: 10s
+      timeout: 5s
       retries: 3
 
 volumes:
