@@ -86,3 +86,10 @@ def jack_brain_decision_journal_draft_v1():
     brain_result = explain_backend_brain(context)
     journal = create_decision_journal_draft(context, brain_result)
     return jsonify(journal)
+
+from app.services.jack_brain_front_ui import get_jack_brain_front_ui_html
+
+
+@jack_brain_api.get("/front-ui-v1")
+def jack_brain_front_ui_v1():
+    return get_jack_brain_front_ui_html()
