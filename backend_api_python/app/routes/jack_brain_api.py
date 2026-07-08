@@ -246,3 +246,22 @@ from app.services.jack_timeframe_signal_engine import build_four_timeframe_signa
 @jack_brain_api.get("/four-timeframe-signals-v1")
 def jack_brain_four_timeframe_signals_v1():
     return jsonify(build_four_timeframe_signals_v1({"symbol": request.args.get("symbol", "GBPJPY")}))
+
+
+from app.services.jack_trade_readiness_engine import build_trade_readiness_v2
+
+
+@jack_brain_api.get("/trade-readiness-v2")
+def jack_brain_trade_readiness_v2():
+    payload = {
+        "symbol": request.args.get("symbol", "GBPJPY"),
+        "start_equity": request.args.get("start_equity", 500),
+        "target_equity": request.args.get("target_equity", 100000),
+        "current_equity": request.args.get("current_equity", request.args.get("equity", 500)),
+        "peak_equity": request.args.get("peak_equity", request.args.get("current_equity", request.args.get("equity", 500))),
+        "elapsed_days": request.args.get("elapsed_days", 0),
+        "total_days": request.args.get("total_days", 365),
+        "consecutive_losses": request.args.get("consecutive_losses", 0),
+        "news_risk": request.args.get("news_risk", "unknown"),
+    }
+    return jsonify(build_trade_readiness_v2(payload))
