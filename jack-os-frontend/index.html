@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Jack Personal AI Capital OS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand-block">
+        <div class="brand-mark">J</div>
+        <div>
+          <div class="brand-title">Jack Personal</div>
+          <div class="brand-subtitle">AI Capital OS</div>
+        </div>
+      </div>
+
+      <nav class="nav-list" aria-label="Main navigation">
+        <a class="nav-item active" href="#dashboard">Dashboard</a>
+        <a class="nav-item" href="#signals">Signals</a>
+        <a class="nav-item" href="#readiness">Readiness</a>
+        <a class="nav-item" href="#charts">4 Charts</a>
+        <a class="nav-item" href="#ai-guide">AI Guide</a>
+        <a class="nav-item" href="#forward-test">Forward Test</a>
+        <a class="nav-item" href="#performance-brain">Performance Brain</a>
+        <a class="nav-item" href="#daily-summary">Daily Summary</a>
+        <a class="nav-item" href="#settings">Settings</a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <span class="status-pill green">Research Mode</span>
+        <span class="status-pill amber">Manual Decision</span>
+        <span class="status-pill muted">Broker Disconnected</span>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar">
+        <div>
+          <div class="eyebrow">LOCAL PERSONAL RESEARCH TERMINAL</div>
+          <h1>Jack Personal AI Capital OS</h1>
+          <p class="topbar-note">Forward Test + Alert + Performance Brain foundation. No broker execution in v2 by product design.</p>
+        </div>
+        <div class="topbar-right">
+          <div class="clock-card">
+            <span id="localDate">--</span>
+            <strong id="localTime">--:--</strong>
+          </div>
+          <div class="backend-card" id="backendStatus">Backend: checking</div>
+        </div>
+      </header>
+
+      <section class="safety-strip" aria-label="System mode">
+        <span>RESEARCH MODE</span>
+        <span>BROKER DISCONNECTED</span>
+        <span>MANUAL DECISION REQUIRED</span>
+        <span>FORWARD TEST ONLY</span>
+        <span>PERFORMANCE LEARNING MODE</span>
+      </section>
+
+      <section id="dashboard" class="grid dashboard-grid">
+        <article class="panel hero-panel">
+          <div class="panel-head">
+            <div>
+              <div class="panel-kicker">Capital Mode</div>
+              <h2>WAIT / NORMAL</h2>
+            </div>
+            <span class="terminal-code">v2-prep</span>
+          </div>
+          <p class="large-text">System is prepared for research observation, not execution. Focus on setup quality, market phase, invalidation, and later review.</p>
+          <div class="metric-row">
+            <div class="metric"><span>Risk State</span><strong>Controlled</strong></div>
+            <div class="metric"><span>Decision</span><strong>Manual</strong></div>
+            <div class="metric"><span>Mode</span><strong>Research</strong></div>
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-head compact"><h3>Market Data Feed</h3><span class="dot live"></span></div>
+          <table class="mini-table">
+            <tbody>
+              <tr><td>GBPJPY</td><td>D1/H4/H1/M15</td><td class="ok">Ready</td></tr>
+              <tr><td>XAUUSD</td><td>D1/H4/H1/M15</td><td class="watch">Watch</td></tr>
+              <tr><td>USDJPY</td><td>D1/H4/H1/M15</td><td class="ok">Ready</td></tr>
+              <tr><td>EURUSD</td><td>D1/H4/H1/M15</td><td class="muted-text">Review</td></tr>
+            </tbody>
+          </table>
+        </article>
+
+        <article id="signals" class="panel">
+          <div class="panel-head compact"><h3>4-Timeframe Signal Engine</h3><span class="terminal-code">D1 → M15</span></div>
+          <div class="tf-stack">
+            <div><span>D1</span><strong>Bullish Structure</strong></div>
+            <div><span>H4</span><strong>Pullback Zone</strong></div>
+            <div><span>H1</span><strong>Compression</strong></div>
+            <div><span>M15</span><strong>Awaiting Confirmation</strong></div>
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-head compact"><h3>Strategy Selector v2</h3><span class="status-pill green">Candidate</span></div>
+          <div class="score-line"><span>Trend Continuation</span><strong>82</strong></div>
+          <div class="score-line"><span>Breakout After Compression</span><strong>76</strong></div>
+          <div class="score-line"><span>Range Mean Reversion</span><strong>41</strong></div>
+        </article>
+
+        <article id="readiness" class="panel wide-panel">
+          <div class="panel-head compact"><h3>Trade Readiness v2</h3><span class="status-pill amber">Observation</span></div>
+          <div class="readiness-layout">
+            <div class="readiness-gauge"><span>78</span><small>Research Score</small></div>
+            <div class="readiness-copy">
+              <p>Setup is worth monitoring, but the system is waiting for cleaner H1/M15 confirmation and a defined invalidation area.</p>
+              <div class="tag-row"><span>A candidate</span><span>No chase</span><span>Define invalidation</span><span>Snapshot recommended</span></div>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <section id="charts" class="grid chart-grid">
+        <article class="panel chart-panel"><div class="panel-head compact"><h3>D1 Chart</h3><span>Macro</span></div><div class="mock-chart up"></div></article>
+        <article class="panel chart-panel"><div class="panel-head compact"><h3>H4 Chart</h3><span>Structure</span></div><div class="mock-chart pullback"></div></article>
+        <article class="panel chart-panel"><div class="panel-head compact"><h3>H1 Chart</h3><span>Setup</span></div><div class="mock-chart compress"></div></article>
+        <article class="panel chart-panel"><div class="panel-head compact"><h3>M15 Chart</h3><span>Detail</span></div><div class="mock-chart wait"></div></article>
+      </section>
+
+      <section class="grid lower-grid">
+        <article id="ai-guide" class="panel ai-panel">
+          <div class="panel-head compact"><h3>AI Live Guide</h3><span class="status-pill muted">Analyst</span></div>
+          <ul class="terminal-list">
+            <li>Focus on structure first: D1/H4 alignment is more important than M15 noise.</li>
+            <li>Current state: observation candidate, not mature confirmation.</li>
+            <li>Warning: avoid chasing if price already moves away from the clean zone.</li>
+            <li>Invalidation must be written before any manual decision.</li>
+          </ul>
+        </article>
+
+        <article class="panel">
+          <div class="panel-head compact"><h3>Setup Study Draft</h3><button class="ghost-button" id="copyDraftBtn">Copy Draft</button></div>
+          <pre class="draft-box" id="studyDraft">Symbol: GBPJPY
+Bias: Bullish research bias
+Market structure: D1/H4 constructive
+Setup type: Pullback + compression
+Invalidation: H1 structure breaks below key zone
+Target area: Next liquidity / resistance zone
+Risk issue: No chase after impulsive move
+AI warning: Wait for confirmation and review context manually</pre>
+        </article>
+
+        <article id="daily-summary" class="panel">
+          <div class="panel-head compact"><h3>Daily AI Summary</h3><span class="terminal-code">auto snapshot</span></div>
+          <p>Today’s focus is to collect clean observations. Save one clear setup, one messy setup, and one almost-chase example for future Performance Brain training.</p>
+        </article>
+      </section>
+
+      <section id="forward-test" class="panel full-panel">
+        <div class="panel-head">
+          <div>
+            <div class="panel-kicker">Step 49 Foundation</div>
+            <h2>Forward Test Log</h2>
+          </div>
+          <button class="primary-button" id="saveObservationBtn">Save Forward Test Observation</button>
+        </div>
+        <div class="filter-row" id="filterRow">
+          <button class="filter active" data-filter="all">All</button>
+          <button class="filter" data-filter="watching">Watching</button>
+          <button class="filter" data-filter="triggered">Triggered</button>
+          <button class="filter" data-filter="invalidated">Invalidated</button>
+          <button class="filter" data-filter="reviewed">Reviewed</button>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Created</th>
+                <th>Symbol</th>
+                <th>Bias</th>
+                <th>Setup</th>
+                <th>Readiness</th>
+                <th>Status</th>
+                <th>Result R</th>
+                <th>Mode</th>
+              </tr>
+            </thead>
+            <tbody id="forwardRows"></tbody>
+          </table>
+        </div>
+        <div class="review-box" id="reviewBox">
+          <h3>Review Selected Observation</h3>
+          <div class="review-grid">
+            <label>Status<select id="reviewStatus"><option>watching</option><option>triggered</option><option>invalidated</option><option>reviewed</option></select></label>
+            <label>Result R<input id="reviewR" type="number" step="0.1" placeholder="0.0" /></label>
+            <label class="span-2">Result Note<textarea id="reviewNote" rows="3" placeholder="What happened after this observation?"></textarea></label>
+          </div>
+          <button class="ghost-button" id="saveReviewBtn">Save Review Update</button>
+        </div>
+      </section>
+
+      <section id="performance-brain" class="grid brain-grid">
+        <article class="panel">
+          <div class="panel-head compact"><h3>Alert Center</h3><span class="status-pill amber">Placeholder</span></div>
+          <p>Next step: alert when an observation changes state, readiness changes, or review is due.</p>
+        </article>
+        <article class="panel">
+          <div class="panel-head compact"><h3>Performance Brain</h3><span class="status-pill amber">Placeholder</span></div>
+          <p>Next step: learn which setup types, symbols, and timeframe combinations produce better forward test results.</p>
+        </article>
+        <article id="settings" class="panel">
+          <div class="panel-head compact"><h3>Settings</h3><span class="status-pill muted">v2</span></div>
+          <div class="setting-list">
+            <div><span>Broker status</span><strong>Disconnected</strong></div>
+            <div><span>Execution scope</span><strong>Out of scope in v2</strong></div>
+            <div><span>Data storage</span><strong>Local browser storage</strong></div>
+          </div>
+        </article>
+      </section>
+    </main>
+  </div>
+  <script src="./app.js"></script>
+</body>
+</html>
