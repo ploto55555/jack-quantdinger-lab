@@ -226,3 +226,29 @@ def jack_brain_market_context_v1():
     }
     result = get_market_context_v1(payload)
     return jsonify(result)
+
+
+from app.services.jack_strategy_research_agent import (
+    research_strategy_goal_v1,
+    save_strategy_research_to_memory_v1,
+)
+
+
+@jack_brain_api.get("/strategy-research-v1")
+def jack_brain_strategy_research_v1():
+    payload = {
+        "goal_text": request.args.get("goal_text", "Find a day trading system that targets around 20 pips per day."),
+        "symbol": request.args.get("symbol", "AUTO"),
+        "target_pips_per_day": request.args.get("target_pips_per_day", 20),
+        "start_equity": request.args.get("start_equity", 500),
+        "backtest_years": request.args.get("backtest_years", 10),
+    }
+    result = research_strategy_goal_v1(payload)
+    return jsonify(result)
+
+
+@jack_brain_api.post("/strategy-research-save-v1")
+def jack_brain_strategy_research_save_v1():
+    payload = request.get_json(silent=True) or {}
+    result = save_strategy_research_to_memory_v1(payload)
+    return jsonify(result)
