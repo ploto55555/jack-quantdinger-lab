@@ -20,6 +20,9 @@ def register_routes(app: Flask):
     app.register_blueprint(jack_backtest_api)
     app.register_blueprint(jack_brain_api)
 
+    from app.routes.jack_setup_study_api import jack_setup_study_api
+    app.register_blueprint(jack_setup_study_api)
+
     from app.routes.jack_data_api import jack_data_api
     app.register_blueprint(jack_data_api)
 
@@ -28,4 +31,3 @@ def register_routes(app: Flask):
 
     from app.routes.jack_forex_import_page import jack_forex_import_page
     app.register_blueprint(jack_forex_import_page)
-
