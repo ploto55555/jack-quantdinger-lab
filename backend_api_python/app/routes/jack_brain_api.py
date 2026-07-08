@@ -265,3 +265,11 @@ def jack_brain_trade_readiness_v2():
         "news_risk": request.args.get("news_risk", "unknown"),
     }
     return jsonify(build_trade_readiness_v2(payload))
+
+
+from app.services.jack_four_chart_dashboard import get_four_chart_dashboard_html_v1
+
+
+@jack_brain_api.get("/four-chart-dashboard-v1")
+def jack_brain_four_chart_dashboard_v1():
+    return get_four_chart_dashboard_html_v1()
