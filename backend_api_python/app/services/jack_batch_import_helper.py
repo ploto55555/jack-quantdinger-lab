@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.services.jack_csv_loader import import_csv_file
+from app.services.jack_csv_loader import load_csv_to_storage
 from app.services.jack_candle_storage import storage_status
 
 
@@ -35,7 +35,7 @@ def batch_import_forex_v1(payload: dict[str, Any] | None = None) -> dict[str, An
     failures = []
     for item in selected:
         try:
-            result = import_csv_file(item)
+            result = load_csv_to_storage(item)
             results.append({"request": item, "result": result, "ok": True})
         except Exception as exc:  # pragma: no cover
             failures.append({"request": item, "ok": False, "error": str(exc)})
@@ -97,3 +97,4 @@ def _timeframes(value: Any) -> list[str]:
                 output.append(text)
         return output or allowed
     return allowed
+

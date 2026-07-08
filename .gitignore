@@ -92,3 +92,5 @@ backend_api_python/data/memory/
 # Docker
 # ========================
 docker-compose.override.yml
+backend.env
+data/
