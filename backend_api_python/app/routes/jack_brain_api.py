@@ -273,3 +273,22 @@ from app.services.jack_four_chart_dashboard import get_four_chart_dashboard_html
 @jack_brain_api.get("/four-chart-dashboard-v1")
 def jack_brain_four_chart_dashboard_v1():
     return get_four_chart_dashboard_html_v1()
+
+
+from app.services.jack_ai_live_guide import build_ai_live_guide_v1
+
+
+@jack_brain_api.get("/ai-live-guide-v1")
+def jack_brain_ai_live_guide_v1():
+    payload = {
+        "symbol": request.args.get("symbol", "GBPJPY"),
+        "start_equity": request.args.get("start_equity", 500),
+        "target_equity": request.args.get("target_equity", 100000),
+        "current_equity": request.args.get("current_equity", request.args.get("equity", 500)),
+        "peak_equity": request.args.get("peak_equity", request.args.get("current_equity", request.args.get("equity", 500))),
+        "elapsed_days": request.args.get("elapsed_days", 0),
+        "total_days": request.args.get("total_days", 365),
+        "consecutive_losses": request.args.get("consecutive_losses", 0),
+        "news_risk": request.args.get("news_risk", "unknown"),
+    }
+    return jsonify(build_ai_live_guide_v1(payload))
