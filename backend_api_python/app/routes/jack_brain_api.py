@@ -252,3 +252,11 @@ def jack_brain_strategy_research_save_v1():
     payload = request.get_json(silent=True) or {}
     result = save_strategy_research_to_memory_v1(payload)
     return jsonify(result)
+
+
+from app.services.jack_beta_terminal_ui import get_jack_beta_terminal_ui_html
+
+
+@jack_brain_api.get("/beta-terminal-v1")
+def jack_brain_beta_terminal_v1():
+    return get_jack_beta_terminal_ui_html()
