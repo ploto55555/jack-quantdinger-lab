@@ -1,4 +1,4 @@
-﻿from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request
 
 from app.services.jack_llm_brain import (
     build_brain_context,
@@ -260,3 +260,52 @@ from app.services.jack_beta_terminal_ui import get_jack_beta_terminal_ui_html
 @jack_brain_api.get("/beta-terminal-v1")
 def jack_brain_beta_terminal_v1():
     return get_jack_beta_terminal_ui_html()
+
+
+from app.services.jack_strategy_library import (
+    load_strategy_library_v1,
+    list_strategy_candidates_v1,
+    get_strategy_candidate_v1,
+    choose_strategy_for_goal_v1,
+)
+
+
+@jack_brain_api.get("/strategy-library-v1")
+def jack_brain_strategy_library_v1():
+    result = load_strategy_library_v1()
+    return jsonify(result)
+
+
+@jack_brain_api.get("/strategy-candidates-v1")
+def jack_brain_strategy_candidates_v1():
+    payload = {
+        "role": request.args.get("role", ""),
+        "mode": request.args.get("mode", ""),
+        "symbol": request.args.get("symbol", ""),
+        "limit": request.args.get("limit", 50),
+    }
+    result = list_strategy_candidates_v1(payload)
+    return jsonify(result)
+
+
+@jack_brain_api.get("/strategy-candidate-v1")
+def jack_brain_strategy_candidate_v1():
+    payload = {
+        "strategy_id": request.args.get("strategy_id", ""),
+    }
+    result = get_strategy_candidate_v1(payload)
+    return jsonify(result)
+
+
+@jack_brain_api.get("/strategy-selector-v1")
+def jack_brain_strategy_selector_v1():
+    payload = {
+        "equity": request.args.get("equity", 500),
+        "peak_equity": request.args.get("peak_equity", request.args.get("equity", 500)),
+        "target_equity": request.args.get("target_equity", 100000),
+        "consecutive_losses": request.args.get("consecutive_losses", 0),
+        "news_risk": request.args.get("news_risk", "unknown"),
+        "market_quality": request.args.get("market_quality", "normal"),
+    }
+    result = choose_strategy_for_goal_v1(payload)
+    return jsonify(result)
