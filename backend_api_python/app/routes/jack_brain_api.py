@@ -162,3 +162,33 @@ def jack_brain_search_memory_v1():
     }
     result = search_memory_v1(payload)
     return jsonify(result)
+
+
+from app.services.jack_capital_compounding import (
+    simulate_capital_path_v1,
+    compare_compounding_plans_v1,
+)
+
+
+@jack_brain_api.get("/capital-compounding-v1")
+def jack_brain_capital_compounding_v1():
+    payload = {
+        "start_equity": request.args.get("start_equity", 500),
+        "daily_growth_percent": request.args.get("daily_growth_percent", 5),
+        "days": request.args.get("days", 90),
+        "target_equity": request.args.get("target_equity", 1000000),
+    }
+    result = simulate_capital_path_v1(payload)
+    return jsonify(result)
+
+
+@jack_brain_api.get("/capital-compounding-compare-v1")
+def jack_brain_capital_compounding_compare_v1():
+    payload = {
+        "start_equity": request.args.get("start_equity", 500),
+        "days": request.args.get("days", 90),
+        "target_equity": request.args.get("target_equity", 1000000),
+        "daily_growth_percents": [1, 2, 3, 5, 10],
+    }
+    result = compare_compounding_plans_v1(payload)
+    return jsonify(result)
