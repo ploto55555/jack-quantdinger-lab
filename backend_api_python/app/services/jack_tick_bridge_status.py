@@ -8,6 +8,9 @@ from typing import Any, Dict, Optional
 from app.services.jack_live_price_feed import _tick_candidates
 
 
+CORRECT_BRIDGE_COMMAND = 'python scripts\\mt5_tick_bridge_writer.py --mt5-symbol "GBPJPYm#" --output-symbol GBPJPY --interval 2'
+
+
 def _clean_symbol(symbol: str) -> str:
     return str(symbol or "GBPJPY").upper().replace("/", "").replace("_", "")
 
@@ -53,12 +56,14 @@ def get_tick_bridge_status_v1(payload: Dict[str, Any] | None = None) -> Dict[str
             "age_seconds": None,
             "latest": None,
             "expected_files": [str(p) for p in candidates[:8]],
-            "how_to_start": "Run: python scripts/mt5_tick_bridge_writer.py --symbol GBPJPY --interval 2",
+            "how_to_start": CORRECT_BRIDGE_COMMAND,
+            "note": "Step 55C: no crash if MT5 bridge is off; dashboard should show LIVE OFF and keep last good candles.",
         }
 
+    ok = bool(data and (data.get("price") is not None or data.get("mid") is not None))
     return {
         "version": "tick_bridge_status_v1",
-        "ok": bool(data and data.get("price") is not None or data and data.get("mid") is not None),
+        "ok": ok,
         "mode": "personal_research_support_only",
         "broker_connection": False,
         "auto_trading": False,
@@ -69,4 +74,5 @@ def get_tick_bridge_status_v1(payload: Dict[str, Any] | None = None) -> Dict[str
         "age_seconds": _age_seconds(found_path),
         "latest": data,
         "expected_files": [str(p) for p in candidates[:8]],
+        "how_to_start": CORRECT_BRIDGE_COMMAND,
     }
