@@ -240,6 +240,19 @@ def jack_brain_latest_candles_v1():
     return jsonify(get_latest_candles_v1({"symbol": request.args.get("symbol", "GBPJPY"), "timeframes": [part.strip().upper() for part in raw_timeframes.split(",") if part.strip()], "limit": request.args.get("limit", 300)}))
 
 
+from app.services.jack_indicator_overlay_engine import build_indicator_overlay_v1, build_indicator_overlay_all_v1
+
+
+@jack_brain_api.get("/indicator-overlay-v1")
+def jack_brain_indicator_overlay_v1():
+    return jsonify(build_indicator_overlay_v1({"symbol": request.args.get("symbol", "GBPJPY"), "timeframe": request.args.get("timeframe", "H1"), "limit": request.args.get("limit", 320)}))
+
+
+@jack_brain_api.get("/indicator-overlay-all-v1")
+def jack_brain_indicator_overlay_all_v1():
+    return jsonify(build_indicator_overlay_all_v1({"symbol": request.args.get("symbol", "GBPJPY"), "timeframes": request.args.get("timeframes", "D1,H1,M15,M5"), "limit": request.args.get("limit", 320)}))
+
+
 from app.services.jack_timeframe_signal_engine import build_four_timeframe_signals_v1
 
 
