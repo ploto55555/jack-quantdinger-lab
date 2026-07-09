@@ -253,6 +253,19 @@ def jack_brain_indicator_overlay_all_v1():
     return jsonify(build_indicator_overlay_all_v1({"symbol": request.args.get("symbol", "GBPJPY"), "timeframes": request.args.get("timeframes", "D1,H1,M15,M5"), "limit": request.args.get("limit", 320)}))
 
 
+from app.services.jack_live_price_feed import get_live_price_v1, get_live_price_all_v1
+
+
+@jack_brain_api.get("/live-price-v1")
+def jack_brain_live_price_v1():
+    return jsonify(get_live_price_v1({"symbol": request.args.get("symbol", "GBPJPY"), "timeframe": request.args.get("timeframe", "M5")}))
+
+
+@jack_brain_api.get("/live-price-all-v1")
+def jack_brain_live_price_all_v1():
+    return jsonify(get_live_price_all_v1({"symbol": request.args.get("symbol", "GBPJPY"), "timeframes": request.args.get("timeframes", "D1,H1,M15,M5")}))
+
+
 from app.services.jack_timeframe_signal_engine import build_four_timeframe_signals_v1
 
 
