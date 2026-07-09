@@ -1,5 +1,5 @@
-﻿"""
-API Routes Module â€” Agent Gateway + OpenAPI-registered human routes.
+"""
+API Routes Module - Agent Gateway + OpenAPI-registered human routes.
 """
 from flask import Flask
 
@@ -25,6 +25,9 @@ def register_routes(app: Flask):
 
     from app.routes.jack_daily_summary_api import jack_daily_summary_api
     app.register_blueprint(jack_daily_summary_api)
+
+    from app.routes.jack_tick_bridge_api import jack_tick_bridge_api
+    app.register_blueprint(jack_tick_bridge_api)
 
     from app.routes.jack_data_api import jack_data_api
     app.register_blueprint(jack_data_api)
