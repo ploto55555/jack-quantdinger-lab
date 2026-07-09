@@ -11,12 +11,15 @@ Install dependency locally if needed:
     pip install histdata
 
 Examples:
-    python scripts/download_fx_1min_data.py --pairs gbpjpy --start-year 2020 --end-year 2024
-    python scripts/download_fx_1min_data.py --pairs gbpjpy,xauusd,gbpusd,eurusd --start-year 2022 --end-year 2024
+    # Past years: HistData expects full-year download with month omitted.
+    python scripts/download_fx_1min_data.py --pairs gbpjpy --start-year 2024 --end-year 2024
+
+    # Current year partial month download:
+    python scripts/download_fx_1min_data.py --pairs gbpjpy --start-year 2026 --end-year 2026 --start-month 7 --end-month 7 --monthly
 
 Notes:
-    - HistData files are typically monthly ZIP files.
-    - Download behavior is handled by the histdata package.
+    - For past years, the histdata package expects month=None / omitted.
+    - For current year data, use --monthly and specify a month.
     - The default output folder is local and should not be committed.
 """
 
@@ -25,6 +28,7 @@ from __future__ import annotations
 import argparse
 import sys
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Iterable
 
@@ -42,7 +46,13 @@ DEFAULT_OUTPUT_DIR = Path("data/external/fx_1min_raw")
 class DownloadJob:
     pair: str
     year: int
-    month: int
+    month: int | None = None
+
+    @property
+    def label(self) -> str:
+        if self.month is None:
+            return f"{self.year}"
+        return f"{self.year}-{self.month:02d}"
 
 
 def _parse_pairs(value: str) -> list[str]:
@@ -53,7 +63,19 @@ def _parse_pairs(value: str) -> list[str]:
     return pairs
 
 
-def _iter_jobs(pairs: Iterable[str], start_year: int, end_year: int, start_month: int, end_month: int) -> Iterable[DownloadJob]:
+def _iter_yearly_jobs(pairs: Iterable[str], start_year: int, end_year: int) -> Iterable[DownloadJob]:
+    for pair in pairs:
+        for year in range(start_year, end_year + 1):
+            yield DownloadJob(pair=pair, year=year, month=None)
+
+
+def _iter_monthly_jobs(
+    pairs: Iterable[str],
+    start_year: int,
+    end_year: int,
+    start_month: int,
+    end_month: int,
+) -> Iterable[DownloadJob]:
     for pair in pairs:
         for year in range(start_year, end_year + 1):
             first_month = start_month if year == start_year else 1
@@ -74,17 +96,20 @@ def download_job(job: DownloadJob, output_dir: Path) -> None:
     pair_dir = output_dir / job.pair
     pair_dir.mkdir(parents=True, exist_ok=True)
 
-    print(f"Downloading {job.pair} {job.year}-{job.month:02d} M1 data...")
+    print(f"Downloading {job.pair} {job.label} M1 data...")
+
+    kwargs = {
+        "year": str(job.year),
+        "pair": job.pair,
+        "platform": P.GENERIC_ASCII,
+        "time_frame": TF.ONE_MINUTE,
+        "output_directory": str(pair_dir),
+    }
+    if job.month is not None:
+        kwargs["month"] = str(job.month)
+
     # The histdata package manages the remote download and extraction behavior.
-    # We keep the call simple and explicit for reproducibility.
-    dl(
-        year=str(job.year),
-        month=str(job.month),
-        pair=job.pair,
-        platform=P.GENERIC_ASCII,
-        time_frame=TF.ONE_MINUTE,
-        output_directory=str(pair_dir),
-    )
+    dl(**kwargs)
 
 
 def main() -> int:
@@ -94,6 +119,7 @@ def main() -> int:
     parser.add_argument("--end-year", type=int, required=True)
     parser.add_argument("--start-month", type=int, default=1)
     parser.add_argument("--end-month", type=int, default=12)
+    parser.add_argument("--monthly", action="store_true", help="Use monthly downloads. Needed for current-year partial months.")
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
     parser.add_argument("--dry-run", action="store_true", help="Print jobs without downloading.")
     args = parser.parse_args()
@@ -103,19 +129,29 @@ def main() -> int:
     if not (1 <= args.start_month <= 12 and 1 <= args.end_month <= 12):
         raise ValueError("Months must be between 1 and 12")
 
+    current_year = datetime.now().year
     pairs = _parse_pairs(args.pairs)
-    jobs = list(_iter_jobs(pairs, args.start_year, args.end_year, args.start_month, args.end_month))
+
+    if args.monthly:
+        jobs = list(_iter_monthly_jobs(pairs, args.start_year, args.end_year, args.start_month, args.end_month))
+    else:
+        if args.end_year >= current_year:
+            raise ValueError(
+                "Yearly mode is for past years only. For current-year partial data, add --monthly and specify months."
+            )
+        jobs = list(_iter_yearly_jobs(pairs, args.start_year, args.end_year))
 
     print("Jack FX M1 Data Downloader")
     print("Mode: personal_research_support_only")
     print("Broker connection: false")
     print("Order actions: false")
     print(f"Output directory: {args.output_dir}")
+    print(f"Download mode: {'monthly' if args.monthly else 'yearly'}")
     print(f"Jobs: {len(jobs)}")
 
     if args.dry_run:
         for job in jobs:
-            print(f"DRY RUN {job.pair} {job.year}-{job.month:02d}")
+            print(f"DRY RUN {job.pair} {job.label}")
         return 0
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
@@ -124,7 +160,7 @@ def main() -> int:
         try:
             download_job(job, args.output_dir)
         except Exception as exc:  # pragma: no cover - network/user environment dependent
-            msg = f"FAILED {job.pair} {job.year}-{job.month:02d}: {exc}"
+            msg = f"FAILED {job.pair} {job.label}: {exc}"
             failures.append(msg)
             print(msg, file=sys.stderr)
 
