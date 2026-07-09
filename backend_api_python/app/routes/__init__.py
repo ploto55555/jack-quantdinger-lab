@@ -37,3 +37,6 @@ def register_routes(app: Flask):
 
     from app.routes.jack_forex_import_page import jack_forex_import_page
     app.register_blueprint(jack_forex_import_page)
+
+    from app.routes.jack_stability_api import jack_stability_api
+    app.register_blueprint(jack_stability_api)
