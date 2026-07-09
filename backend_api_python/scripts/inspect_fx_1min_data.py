@@ -2,7 +2,11 @@
 
 Mode: personal_research_support_only
 
-This script reads semicolon-separated Generic ASCII 1-minute files:
+This script reads HistData Generic ASCII 1-minute files from either:
+    - extracted CSV files
+    - HistData ZIP files containing CSV/TXT data
+
+Expected row format:
     YYYYMMDD HHMMSS;open;high;low;close;volume
 
 It reports:
@@ -19,8 +23,10 @@ It does not connect to a broker and it does not place trades.
 from __future__ import annotations
 
 import argparse
-from dataclasses import dataclass, asdict
+import zipfile
+from dataclasses import asdict, dataclass
 from pathlib import Path
+from typing import Iterable
 
 import pandas as pd
 
@@ -41,6 +47,15 @@ class InspectionSummary:
     zero_volume_rows: int
 
 
+def _normalize_histdata_frame(df: pd.DataFrame) -> pd.DataFrame:
+    df.columns = ["timestamp", "open", "high", "low", "close", "volume"]
+    df["timestamp"] = pd.to_datetime(df["timestamp"], format="%Y%m%d %H%M%S", errors="coerce")
+    for column in ["open", "high", "low", "close"]:
+        df[column] = pd.to_numeric(df[column], errors="coerce")
+    df["volume"] = pd.to_numeric(df["volume"], errors="coerce").fillna(0)
+    return df.dropna(subset=["timestamp", "open", "high", "low", "close"])
+
+
 def _read_histdata_csv(path: Path) -> pd.DataFrame:
     df = pd.read_csv(
         path,
@@ -48,29 +63,57 @@ def _read_histdata_csv(path: Path) -> pd.DataFrame:
         header=None,
         names=["timestamp", "open", "high", "low", "close", "volume"],
     )
-    df["timestamp"] = pd.to_datetime(df["timestamp"], format="%Y%m%d %H%M%S", errors="coerce")
-    for column in ["open", "high", "low", "close"]:
-        df[column] = pd.to_numeric(df[column], errors="coerce")
-    df["volume"] = pd.to_numeric(df["volume"], errors="coerce").fillna(0)
-    df = df.dropna(subset=["timestamp", "open", "high", "low", "close"])
-    return df
+    return _normalize_histdata_frame(df)
+
+
+def _read_histdata_zip(path: Path) -> list[pd.DataFrame]:
+    frames: list[pd.DataFrame] = []
+    with zipfile.ZipFile(path) as archive:
+        for member in archive.namelist():
+            lower = member.lower()
+            if not (lower.endswith(".csv") or lower.endswith(".txt")):
+                continue
+            with archive.open(member) as handle:
+                df = pd.read_csv(
+                    handle,
+                    sep=";",
+                    header=None,
+                    names=["timestamp", "open", "high", "low", "close", "volume"],
+                )
+            df = _normalize_histdata_frame(df)
+            if not df.empty:
+                df["source_file"] = f"{path}!{member}"
+                frames.append(df)
+    return frames
+
+
+def _iter_data_files(pair_dir: Path) -> Iterable[Path]:
+    patterns = ["*.csv", "*.txt", "*.zip"]
+    for pattern in patterns:
+        yield from pair_dir.rglob(pattern)
 
 
 def inspect_pair(pair: str, input_dir: Path) -> tuple[InspectionSummary, pd.DataFrame]:
     pair = pair.lower().replace("/", "")
     pair_dir = input_dir / pair
-    files = sorted(list(pair_dir.rglob("*.csv")))
+    files = sorted(set(_iter_data_files(pair_dir)))
 
     frames: list[pd.DataFrame] = []
     for file_path in files:
-        frame = _read_histdata_csv(file_path)
-        frame["source_file"] = str(file_path)
-        frames.append(frame)
+        try:
+            if file_path.suffix.lower() == ".zip":
+                frames.extend(_read_histdata_zip(file_path))
+            else:
+                frame = _read_histdata_csv(file_path)
+                frame["source_file"] = str(file_path)
+                frames.append(frame)
+        except Exception as exc:
+            print(f"WARNING: failed to read {file_path}: {exc}")
 
     if not frames:
         summary = InspectionSummary(
             pair=pair,
-            file_count=0,
+            file_count=len(files),
             row_count=0,
             first_timestamp=None,
             last_timestamp=None,
