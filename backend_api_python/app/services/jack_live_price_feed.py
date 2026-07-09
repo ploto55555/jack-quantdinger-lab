@@ -32,6 +32,19 @@ def _safe_float(value: Any) -> Optional[float]:
         return None
 
 
+def _age_seconds_from_path(path: Path) -> Optional[float]:
+    try:
+        modified = datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc)
+        return round((datetime.now(timezone.utc) - modified).total_seconds(), 2)
+    except Exception:
+        return None
+
+
+def _pip_size(symbol: str) -> float:
+    symbol = _clean_symbol(symbol)
+    return 0.01 if symbol.endswith("JPY") else 0.0001
+
+
 def _tick_candidates(symbol: str) -> list[Path]:
     symbol = _clean_symbol(symbol)
     names = [
@@ -46,7 +59,8 @@ def _tick_candidates(symbol: str) -> list[Path]:
 
 
 def _read_tick_file(symbol: str) -> Optional[Dict[str, Any]]:
-    for path in _tick_candidates(symbol):
+    symbol_clean = _clean_symbol(symbol)
+    for path in _tick_candidates(symbol_clean):
         if not path.exists() or not path.is_file():
             continue
         try:
@@ -58,25 +72,32 @@ def _read_tick_file(symbol: str) -> Optional[Dict[str, Any]]:
         mid = _safe_float(raw.get("mid"))
         last = _safe_float(raw.get("last"))
         close = _safe_float(raw.get("close"))
-        price = mid or last or close
+        price = _safe_float(raw.get("price")) or mid or last or close
         if price is None and bid is not None and ask is not None:
             price = (bid + ask) / 2
         if price is None:
             continue
         spread = _safe_float(raw.get("spread_pips"))
         if spread is None and bid is not None and ask is not None:
-            spread = abs(ask - bid) * 100
+            spread = abs(ask - bid) / _pip_size(symbol_clean)
+        written_at = raw.get("written_at") or raw.get("timestamp") or raw.get("time")
         return {
             "ok": True,
-            "source": "local_tick_file",
-            "symbol": _clean_symbol(symbol),
+            "source": raw.get("source") or "local_tick_file",
+            "symbol": _clean_symbol(raw.get("symbol") or symbol_clean),
+            "mt5_symbol": raw.get("mt5_symbol"),
             "timestamp": raw.get("timestamp") or raw.get("time") or datetime.now(timezone.utc).isoformat(),
+            "written_at": written_at,
+            "age_seconds": _age_seconds_from_path(path),
             "price": round(price, 5),
             "bid": round(bid, 5) if bid is not None else None,
             "ask": round(ask, 5) if ask is not None else None,
+            "mid": round(mid, 5) if mid is not None else round(price, 5),
+            "last": round(last, 5) if last is not None else None,
             "spread_pips": round(spread, 2) if spread is not None else None,
             "file_name": path.name,
             "file_path": str(path),
+            "note": raw.get("note") or "Read-only tick file. No broker order action is used.",
         }
     return None
 
@@ -92,14 +113,18 @@ def _fallback_from_latest_candle(symbol: str, timeframe: str) -> Dict[str, Any]:
         "ok": close is not None,
         "source": "latest_candle_close_fallback",
         "symbol": symbol,
+        "mt5_symbol": None,
         "timeframe": timeframe,
         "timestamp": latest.get("timestamp") or datetime.now(timezone.utc).isoformat(),
+        "written_at": None,
+        "age_seconds": None,
         "price": round(close, 5) if close is not None else None,
         "bid": None,
         "ask": None,
+        "mid": round(close, 5) if close is not None else None,
         "spread_pips": None,
         "file_name": tf_data.get("file_name"),
-        "note": "No local tick file found yet. Using the latest candle close as a live reference line until MT5 tick bridge is added.",
+        "note": "No local tick file found yet. Using latest candle close as a reference line only.",
     }
 
 
